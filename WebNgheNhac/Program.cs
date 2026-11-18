@@ -1,4 +1,18 @@
+using Microsoft.EntityFrameworkCore;
+using WebNgheNhac.Data;
+using Supabase;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. Cấu hình DbContext kết nối SQL Server
+builder.Services.AddDbContext<WebNgheNhacDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 2. Cấu hình Supabase Client để lưu trữ audio và cover image
+var supabaseUrl = builder.Configuration["Supabase:Url"] ?? "";
+var supabaseKey = builder.Configuration["Supabase:Key"] ?? "";
+builder.Services.AddSingleton(provider =>
+    new Supabase.Client(supabaseUrl, supabaseKey, new SupabaseOptions { AutoConnectRealtime = false }));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
