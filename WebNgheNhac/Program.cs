@@ -16,8 +16,17 @@ builder.Services.AddSingleton(provider =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+// Kích hoạt Swagger để sinh tài liệu API tự động
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+// Bật trang giao diện Swagger UI khi chạy ứng dụng
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Web Nghe Nhac API v1");
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
