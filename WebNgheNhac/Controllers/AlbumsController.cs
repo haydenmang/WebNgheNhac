@@ -1,0 +1,82 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using WebNgheNhac.Data;
+
+namespace WebNgheNhac.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")] // Đường dẫn: /api/albums
+    public class AlbumsController : ControllerBase
+    {
+        private readonly WebNgheNhacDbContext _context;
+
+        public AlbumsController(WebNgheNhacDbContext context)
+        {
+            _context = context;
+        }
+
+        // 1. GET: api/albums (Lấy danh sách album)
+        [HttpGet]
+        public async Task<IActionResult> GetAlbums()
+        {
+            var albums = await _context.Albums
+                .Include(a => a.Singer) // Bao gồm thông tin ca sĩ
+                .Select(a => new
+                {
+                    a.Id,
+                    a.AlbumName,
+                    a.CoverUrl,
+                    a.CreatedAt,
+                    SingerName = a.Singer!= null ? a.Singer.Name : "Chưa rõ",
+                    TotalSongs = a.Songs.Count // Đếm số lượng bài hát trong album
+                })
+                .ToListAsync();
+
+            return Ok(albums);
+        }
+
+        // 2. GET: api/albums/{id} (Lấy thông tin chi tiết của album theo ID)
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetAlbum(int id)
+        {
+            var album = await _context.Albums
+                .Include(a => a.Singer) // Bao gồm thông tin ca sĩ
+                .FirstOrDefaultAsync(a => a.Id == id);
+            if (album == null)
+            {
+                return NotFound(new { message = "Không tìm thấy album này" });
+            }
+
+            return Ok(album);
+        }
+
+        // 3. GET: api/albums/{id}/songs (Lấy danh sách bài hát trong album theo ID)
+        [HttpGet("{id}/songs")]
+        public async Task<IActionResult> GetSongsByAlbum(int id)
+        {
+            var albumExists = await _context.Albums.AnyAsync(a => a.Id == id);
+            if (!albumExists)
+            {
+                return NotFound(new { message = "Không tìm thấy album này" });
+            }
+            var songs = await _context.Songs
+                .Where(s => s.AlbumId == id)
+                .Include(s => s.Singer)
+                .Include(s => s.Type)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Title,
+                    s.AudioUrl,
+                    s.CoverUrl,
+                    s.Duration,
+                    s.Plays,
+                    SingerName = s.Singer != null ? s.Singer.Name : "Chưa rõ",
+                    TypeName = s.Type != null ? s.Type.TypeName : "Chưa rõ"
+                })
+                .ToListAsync();
+
+            return Ok(songs);
+        }
+    }
+}
