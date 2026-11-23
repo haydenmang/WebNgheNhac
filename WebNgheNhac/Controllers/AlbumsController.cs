@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
+using WebNgheNhac.Models;
 
 namespace WebNgheNhac.Controllers
 {
@@ -78,5 +80,56 @@ namespace WebNgheNhac.Controllers
 
             return Ok(songs);
         }
+
+        // 4. POST: api/albums (Thêm album mới)
+        [HttpPost]
+        public async Task<IActionResult> CreateAlbum([FromBody] CreateAlbumRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.AlbumName))
+            {
+                return BadRequest(new { message = "Tên album không được để trống" });
+            }
+
+            var album = new Album
+            {
+                AlbumName = request.AlbumName,
+                CoverUrl = string.IsNullOrWhiteSpace(request.CoverUrl) ? "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4" : request.CoverUrl,
+                SingerId = request.SingerId,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Albums.Add(album);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Thêm album thành công", album });
+        }
+
+        // 5. DELETE: api/albums/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteAlbum(int id)
+        {
+            var album = await _context.Albums.FindAsync(id);
+            if (album == null)
+            {
+                return NotFound(new { message = "Không tìm thấy album để xóa" });
+            }
+
+            _context.Albums.Remove(album);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa album thành công" });
+        }
+    }
+
+    public class CreateAlbumRequest
+    {
+        [Required]
+        public string AlbumName { get; set; } = null!;
+
+        [Required]
+        public string CoverUrl { get; set; } = null!;
+
+        [Range(1, int.MaxValue)]
+        public int SingerId { get; set; }
     }
 }

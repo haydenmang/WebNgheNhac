@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
 using Type = WebNgheNhac.Models.Type; // Đặt alisas Type để tránh xung đột với System.Type
@@ -70,5 +71,34 @@ namespace WebNgheNhac.Controllers
                 .ToListAsync();
             return Ok(songs);
         }
+
+        // 4. POST: api/types (Thêm thể loại mới)
+        [HttpPost]
+        public async Task<IActionResult> CreateType([FromBody] CreateTypeRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.TypeName))
+            {
+                return BadRequest(new { message = "Tên thể loại không được để trống" });
+            }
+
+            var type = new Type
+            {
+                TypeName = request.TypeName,
+                ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad" : request.ImageUrl
+            };
+
+            _context.Types.Add(type);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Thêm thể loại thành công", type });
+        }
+    }
+
+    public class CreateTypeRequest
+    {
+        [Required]
+        [MaxLength(50)]
+        public string TypeName { get; set; } = null!;
+        public string? ImageUrl { get; set; }
     }
 }

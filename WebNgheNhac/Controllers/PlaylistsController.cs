@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
@@ -35,7 +36,7 @@ namespace WebNgheNhac.Controllers
         }
 
         // 2. GET: api/playlists/5 (lấy chi tiết playlist kèm toàn bộ bài hát bên trong)
-        [HttpGet("id")]
+        [HttpGet("{id}")]
         public async Task<IActionResult> GetPlaylistDetails(int id)
         {
             var playlist = await _context.Playlists
@@ -176,12 +177,17 @@ namespace WebNgheNhac.Controllers
     // Các DTOs nhập dữ liệu
     public class CreatePlaylistRequest
     {
-        public string Name { get; set; } = null;
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = null!;
+
+        [Range(1, int.MaxValue)]
         public int UserId { get; set; }
     }
 
     public class AddSongRequest
     {
+        [Range(1, int.MaxValue)]
         public int SongId { get; set; }
     }
 }

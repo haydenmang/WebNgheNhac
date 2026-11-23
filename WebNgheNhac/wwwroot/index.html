@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SoundWave – Website Nghe Nhạc Trực Tuyến</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/pages.css"/>
+  <link rel="stylesheet" href="css/enhancements.css"/>
+  <link rel="stylesheet" href="css/soundwave-ui.css"/>
+  <style>
+    /* Custom enhancements for integrated system */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast-msg {
+      background: rgba(18, 22, 34, 0.95);
+      border: 1px solid rgba(4, 255, 36, 0.4);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 15px rgba(4, 255, 36, 0.2);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      pointer-events: auto;
+    }
+    .toast-msg.error {
+      border-color: rgba(239, 68, 68, 0.5);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 15px rgba(239, 68, 68, 0.2);
+    }
+    @keyframes slideInToast {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .auth-tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      color: var(--muted2);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .auth-tab-btn.active {
+      color: var(--green);
+      border-bottom-color: var(--green);
+    }
+    .btn-admin-pill {
+      background: rgba(4, 255, 36, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(4, 255, 36, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .track-row.is-current-playing {
+      background: rgba(4, 255, 36, 0.08) !important;
+      border-left: 3px solid var(--green);
+    }
+    .track-row.is-current-playing .tr-title {
+      color: var(--green) !important;
+      font-weight: 700;
+    }
+    .song-menu-dropdown {
+      position: absolute;
+      right: 10px;
+      top: 36px;
+      background: #181d28;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+      padding: 6px;
+      z-index: 1000;
+      min-width: 170px;
+      display: none;
+    }
+    .song-menu-dropdown.show { display: block; }
+    .song-menu-item {
+      padding: 8px 12px;
+      color: #e2e8f0;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .song-menu-item:hover {
+      background: rgba(4, 255, 36, 0.15);
+      color: var(--green);
+    }
+    .admin-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .admin-metric-card {
+      background: rgba(22, 27, 39, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .admin-metric-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(4, 255, 36, 0.3);
+    }
+    .admin-metric-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===================== SIDEBAR ===================== -->
+<aside class="sidebar">
+  <div class="logo" style="cursor:pointer" onclick="router.go('home')">
+    <div class="logo-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="11" stroke="#04FF24" stroke-width="1.5"/>
+        <path d="M9.5 7.5v9l8-4.5-8-4.5z" fill="#04FF24"/>
+      </svg>
+    </div>
+    <span class="logo-text">SoundWave</span>
+  </div>
+
+  <nav class="nav">
+    <span class="nav-label">Khám phá</span>
+
+    <a class="nav-item active" data-page="home">
+      <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+      <span class="nav-text">Trang chủ</span>
+      <span class="nav-active-pill"></span>
+    </a>
+
+    <a class="nav-item" data-page="search">
+      <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <span class="nav-text">Tìm kiếm</span>
+    </a>
+
+    <a class="nav-item" data-page="library">
+      <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+      <span class="nav-text">Thư viện Playlist</span>
+    </a>
+
+    <a class="nav-item" data-page="favorites">
+      <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></span>
+      <span class="nav-text">Bài hát yêu thích</span>
+    </a>
+
+    <a class="nav-item" data-page="admin" id="navAdminItem">
+      <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+      <span class="nav-text">Quản trị Admin</span>
+      <span class="nav-admin-badge">ADMIN</span>
+    </a>
+
+    <span class="nav-label" style="margin-top:20px">Danh sách phát</span>
+
+    <a class="nav-item" id="btnSidebarCreatePlaylist" style="color:var(--green)">
+      <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+      <span class="nav-text">Tạo Playlist mới</span>
+    </a>
+
+    <div id="sidebarPlaylistsList">
+      <!-- Injected by JavaScript -->
+    </div>
+  </nav>
+
+  <!-- Sidebar User Profile -->
+  <div class="sidebar-user" id="sidebarUserBox" style="cursor:pointer">
+    <div class="user-ava" id="sidebarUserAvatar">VN</div>
+    <div class="user-info">
+      <span class="user-name" id="sidebarUserName">Khách vãng lai</span>
+      <span class="user-plan" id="sidebarUserPlan"><span class="plan-dot"></span>Chưa đăng nhập</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ===================== MAIN CONTENT ===================== -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="btn-nav" id="btnBack" title="Trang trước"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button class="btn-nav" id="btnFwd" title="Trang sau"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div class="search-wrap">
+      <div class="search-bar">
+        <svg width="15" height="15" fill="none" stroke="#6b7280" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="globalSearch" type="text" placeholder="Tìm bài hát, nghệ sĩ, album… (Nhấn Enter hoặc gõ)"/>
+        <kbd>Ctrl+K</kbd>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div id="topbarStatusBadge" class="btn-admin-pill" style="display:none">
+        <span style="font-size:10px">●</span> Admin
+      </div>
+      <button class="btn-upgrade" id="btnTopAuth">✦ Đăng nhập</button>
+      <div class="user-ava sm" id="topbarUserAva" style="cursor:pointer">VN</div>
+    </div>
+  </header>
+
+  <!-- =========== PAGES WRAPPER =========== -->
+  <div class="pages-wrap">
+
+    <!-- ▌PAGE: HOME (TRANG CHỦ) ▌ -->
+    <div class="page active" id="page-home">
+      <div class="content">
+
+        <!-- 1. HERO BANNER -->
+        <section class="hero reveal">
+          <div class="hero-bg-blur"></div>
+          <div class="hero-left">
+            <div class="hero-badge"><span class="badge-pulse"></span>🔥 Đang thịnh hành • Vietnamese Hip-Hop</div>
+            <h1 class="hero-title">
+              Cảm Nhận<br/>
+              <span class="hero-gradient">Từng Khoảnh Khắc</span>
+            </h1>
+            <p class="hero-desc">Trải nghiệm âm nhạc trực tuyến chất lượng cao, đồng bộ dữ liệu chuẩn SQL Server và stream nhanh từ Supabase CDN.</p>
+            <div class="hero-stats">
+              <div class="stat"><span class="stat-num" id="statSongsCount">24+</span><span class="stat-label">Bài hát</span></div>
+              <div class="stat-divider"></div>
+              <div class="stat"><span class="stat-num" id="statAlbumsCount">3</span><span class="stat-label">Album Hit</span></div>
+              <div class="stat-divider"></div>
+              <div class="stat"><span class="stat-num">Lossless</span><span class="stat-label">Âm thanh HIFI</span></div>
+            </div>
+            <div class="hero-actions">
+              <button class="btn-hero-play" id="btnHeroPlayFirst">
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                <span>Phát Ngay Bây Giờ</span>
+              </button>
+              <button class="btn-hero-explore" onclick="router.go('search')">
+                <span>Khám phá thêm</span>
+              </button>
+            </div>
+          </div>
+          <div class="hero-right">
+            <div class="hero-turntable">
+              <div class="vinyl-disc-wrap">
+                <div class="vinyl-disc hero-vinyl" id="heroVinyl">
+                  <div class="vinyl-grooves"></div>
+                  <div class="vinyl-center-label" style="background-image:url('https://i.scdn.co/image/ab67616d0000b273b315e8bb7ef5e57e9a25bb0f'); background-size:cover;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. THỂ LOẠI NHẠC (TYPES / GENRES) -->
+        <section class="section reveal">
+          <div class="section-header">
+            <div class="sh-title-wrap">
+              <h2 class="sh-title">Khám Phá Theo Thể Loại</h2>
+              <span class="sh-sub">Dòng nhạc đặc sắc thịnh hành</span>
+            </div>
+          </div>
+          <div class="cat-grid" id="homeGenresGrid">
+            <!-- Injected by JavaScript -->
+          </div>
+        </section>
+
+        <!-- 3. ALBUMS ĐỈNH CAO -->
+        <section class="section reveal fav-albums-section">
+          <div class="section-header">
+            <div class="sh-title-wrap">
+              <h2 class="sh-title">Album & Tuyển Tập Nổi Bật</h2>
+              <span class="sh-sub">Các tác phẩm âm nhạc trọn vẹn từ các nghệ sĩ tiêu biểu</span>
+            </div>
+          </div>
+          <div class="albums-grid" id="homeAlbumsGrid">
+            <!-- Injected by JavaScript -->
+          </div>
+        </section>
+
+        <!-- 4. DANH SÁCH BÀI HÁT THỊNH HÀNH -->
+        <section class="section reveal fav-songs-section">
+          <div class="section-header">
+            <div class="sh-title-wrap">
+              <h2 class="sh-title">Bảng Xếp Hạng & Bài Hát Phổ Biến</h2>
+              <span class="sh-sub">Các bài hát có lượt nghe cao nhất trên hệ thống</span>
+            </div>
+            <button class="btn-view-all" onclick="router.go('search')">Xem tất cả</button>
+          </div>
+          <div class="track-list" id="homeTracksContainer">
+            <!-- Injected by JavaScript -->
+          </div>
+          <div id="homePagination" class="pagination-container">
+            <button class="btn-pagination" id="btnPrevPage" disabled onclick="changeHomePage(1)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+              <span>Prev</span>
+            </button>
+            <span class="pagination-info" id="paginationInfo">Trang 1/1</span>
+            <button class="btn-pagination" id="btnNextPage" disabled onclick="changeHomePage(2)">
+              <span>Next</span>
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </section>
+
+        <!-- 5. NGHỆ SĨ HÀNG ĐẦU -->
+        <section class="section reveal fav-artists-section" style="padding-bottom:50px">
+          <div class="section-header">
+            <div class="sh-title-wrap">
+              <h2 class="sh-title">Nghệ Sĩ / Ca Sĩ</h2>
+              <span class="sh-sub">Hồ sơ những gương mặt đình đám</span>
+            </div>
+          </div>
+          <div class="artists-grid" id="homeArtistsGrid">
+            <!-- Injected by JavaScript -->
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ▌PAGE: SEARCH (TÌM KIẾM) ▌ -->
+    <div class="page" id="page-search">
+      <div class="content">
+        <section class="search-hero reveal">
+          <h1 class="sh-hero-title">Tìm Kiếm Âm Nhạc</h1>
+          <p class="sh-hero-desc">Tra cứu nhanh bất kỳ bài hát, nghệ sĩ hoặc album nào trên hệ thống</p>
+          <div class="search-big-wrap">
+            <div class="search-big-bar">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="searchInput" type="text" placeholder="Nhập tên bài hát, ca sĩ (MCK, Obito, Wxrdie) hoặc album..."/>
+              <button id="searchClear" class="btn-clear" style="cursor:pointer">&times;</button>
+            </div>
+          </div>
+          <div class="recent-tags" id="searchQuickTags" style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap">
+            <span class="rtag" style="cursor:pointer">Chìm Sâu</span>
+            <span class="rtag" style="cursor:pointer">Đánh Đổi</span>
+            <span class="rtag" style="cursor:pointer">TETVOVEN</span>
+            <span class="rtag" style="cursor:pointer">MCK</span>
+            <span class="rtag" style="cursor:pointer">Obito</span>
+            <span class="rtag" style="cursor:pointer">Wxrdie</span>
+            <span class="rtag" style="cursor:pointer">99%</span>
+            <span class="rtag" style="cursor:pointer">Trap</span>
+          </div>
+        </section>
+
+        <!-- Search Results Section -->
+        <section class="section reveal" style="padding-bottom:50px">
+          <div class="section-header">
+            <h2 class="sh-title" id="searchResultsHeading">Tất Cả Bài Hát</h2>
+            <span class="sh-sub" id="searchResultsCount">Đang hiển thị danh sách bài hát</span>
+          </div>
+          
+          <div class="track-list" id="searchResultsList">
+            <!-- Injected by JavaScript -->
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ▌PAGE: LIBRARY (THƯ VIỆN & PLAYLIST) ▌ -->
+    <div class="page" id="page-library">
+      <div class="content">
+        <section class="lib-hero reveal">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px">
+            <div>
+              <h1 class="lib-title">Thư Viện Của Tôi</h1>
+              <p class="lib-desc">Quản lý và thưởng thức các danh sách phát cá nhân của bạn</p>
+            </div>
+            <button class="btn-hero-play" id="btnOpenCreatePlaylistModal" style="padding:10px 20px; font-size:14px">
+              <span>+ Tạo Playlist Mới</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Playlist View Container: List vs Detail -->
+        <div id="libraryListView">
+          <section class="section reveal">
+            <div class="section-header">
+              <h2 class="sh-title">Danh Sách Playlist Cá Nhân</h2>
+              <span class="sh-sub" id="libPlaylistsCount">4 playlist</span>
+            </div>
+            <div class="albums-grid" id="libraryPlaylistsGrid">
+              <!-- Injected by JavaScript -->
+            </div>
+          </section>
+        </div>
+
+        <div id="libraryDetailView" style="display:none; padding-bottom:50px">
+          <button class="btn-admin-action secondary" id="btnBackToPlaylistsList" style="margin-bottom:20px; display:inline-flex; align-items:center; gap:8px">
+            ← Quay lại danh sách Playlist
+          </button>
+          <div class="playlist-header-card" style="display:flex; gap:24px; align-items:center; background:rgba(22,27,39,0.8); border:1px solid rgba(255,255,255,0.08); padding:24px; border-radius:20px; margin-bottom:24px">
+            <div style="width:140px; height:140px; border-radius:16px; background:linear-gradient(135deg, #155BC9, #04FF24); display:flex; align-items:center; justify-content:center; font-size:48px; box-shadow:0 10px 30px rgba(0,0,0,0.5)">
+              🎵
+            </div>
+            <div style="flex:1">
+              <span class="badge-pulse" style="margin-bottom:6px"></span><span style="font-size:12px; text-transform:uppercase; color:var(--green); font-weight:700">Playlist cá nhân</span>
+              <h2 id="detailPlaylistName" style="font-size:28px; font-weight:800; margin:6px 0">Tên Playlist</h2>
+              <p id="detailPlaylistMeta" style="color:var(--muted2); font-size:14px; margin-bottom:16px">Tạo bởi bạn • 0 bài hát</p>
+              <div style="display:flex; gap:12px">
+                <button class="btn-hero-play" id="btnPlayFullPlaylist" style="padding:8px 18px; font-size:13px">
+                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                  <span>Phát toàn bộ</span>
+                </button>
+                <button class="btn-admin-action secondary" id="btnDeleteCurrentPlaylist" style="color:#ef4444; border-color:rgba(239,68,68,0.3)">
+                  🗑 Xóa Playlist này
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-header">
+            <h3 class="sh-title">Bài hát trong Playlist</h3>
+          </div>
+          <div class="track-list" id="detailPlaylistSongsList">
+            <!-- Injected by JavaScript -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ▌PAGE: FAVORITES (YÊU THÍCH) ▌ -->
+    <div class="page" id="page-favorites">
+      <div class="content">
+        <section class="fav-hero reveal">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px">
+            <div>
+              <div class="hero-badge"><span class="badge-pulse"></span>Bộ sưu tập riêng</div>
+              <h1 class="fav-title">Bài Hát Đã Yêu Thích</h1>
+              <p class="fav-desc">Tất cả những giai điệu bạn đã thả tim trong các buổi nghe nhạc</p>
+            </div>
+            <button class="btn-hero-play" id="btnPlayAllFavorites" style="padding:10px 20px; font-size:14px">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+              <span>Phát ngẫu nhiên yêu thích</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="section reveal" style="padding-bottom:50px">
+          <div class="track-list" id="favoritesSongsList">
+            <!-- Injected by JavaScript -->
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ▌PAGE: ADMIN (DASHBOARD & QUẢN TRỊ) ▌ -->
+    <div class="page" id="page-admin">
+      <div class="content">
+
+        <!-- Non-admin gate warning (if not level 1) -->
+        <div id="adminAccessGate" style="display:none; text-align:center; padding:60px 20px">
+          <div style="font-size:60px; margin-bottom:16px">🛡️</div>
+          <h2 style="font-size:24px; font-weight:800; margin-bottom:10px">Khu Vực Quản Trị Hệ Thống</h2>
+          <p style="color:var(--muted2); max-width:500px; margin:0 auto 24px">
+            Bạn cần đăng nhập với tài khoản Quản trị viên (Admin Level = 1) để truy cập Bảng điều khiển quản lý bài hát, ca sĩ, album và người dùng.
+          </p>
+          <div style="display:flex; justify-content:center; gap:12px">
+            <button class="btn-hero-play" onclick="openAuthModal('login', true)">
+              <span>Đăng nhập Admin (admin / 123456)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin Dashboard Content -->
+        <div id="adminDashboardContent">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px">
+            <div>
+              <div class="btn-admin-pill"><span style="font-size:10px">●</span> Admin Dashboard</div>
+              <h1 style="font-size:28px; font-weight:800; margin-top:6px">Trung Tâm Quản Trị Hệ Thống</h1>
+              <p style="color:var(--muted2); font-size:14px">Quản lý kho bài hát, danh mục ca sĩ, album và tài khoản người dùng</p>
+            </div>
+            <div style="display:flex; gap:10px">
+              <button class="btn-hero-play" id="btnAdminQuickAddSong" style="padding:9px 18px; font-size:13px">
+                ➕ Thêm Bài Hát (Upload MP3)
+              </button>
+            </div>
+          </div>
+
+          <!-- Metrics Counters Grid -->
+          <div class="admin-metrics-grid">
+            <div class="admin-metric-card">
+              <div class="admin-metric-icon" style="background:rgba(4,255,36,0.12); color:var(--green)">🎵</div>
+              <div>
+                <div style="color:var(--muted2); font-size:13px">Tổng Bài Hát</div>
+                <div style="font-size:26px; font-weight:800; color:#fff" id="adminCountSongs">24</div>
+              </div>
+            </div>
+            <div class="admin-metric-card">
+              <div class="admin-metric-icon" style="background:rgba(21,91,201,0.15); color:#3b82f6">🎤</div>
+              <div>
+                <div style="color:var(--muted2); font-size:13px">Tổng Ca Sĩ</div>
+                <div style="font-size:26px; font-weight:800; color:#fff" id="adminCountSingers">3</div>
+              </div>
+            </div>
+            <div class="admin-metric-card">
+              <div class="admin-metric-icon" style="background:rgba(168,85,247,0.15); color:#a855f7">💿</div>
+              <div>
+                <div style="color:var(--muted2); font-size:13px">Tổng Album</div>
+                <div style="font-size:26px; font-weight:800; color:#fff" id="adminCountAlbums">3</div>
+              </div>
+            </div>
+            <div class="admin-metric-card">
+              <div class="admin-metric-icon" style="background:rgba(245,158,11,0.15); color:#f59e0b">🏷</div>
+              <div>
+                <div style="color:var(--muted2); font-size:13px">Tổng Thể Loại</div>
+                <div style="font-size:26px; font-weight:800; color:#fff" id="adminCountTypes">5</div>
+              </div>
+            </div>
+            <div class="admin-metric-card">
+              <div class="admin-metric-icon" style="background:rgba(239,68,68,0.15); color:#ef4444">👥</div>
+              <div>
+                <div style="color:var(--muted2); font-size:13px">Người Dùng</div>
+                <div style="font-size:26px; font-weight:800; color:#fff" id="adminCountUsers">4</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Admin Tabs -->
+          <div style="display:flex; gap:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:20px; overflow-x:auto">
+            <button class="auth-tab-btn active" onclick="switchAdminTab('songs')">🎵 Quản Lý Bài Hát</button>
+            <button class="auth-tab-btn" onclick="switchAdminTab('singers')">🎤 Quản Lý Ca Sĩ</button>
+            <button class="auth-tab-btn" onclick="switchAdminTab('albums')">💿 Quản Lý Album</button>
+            <button class="auth-tab-btn" onclick="switchAdminTab('types')">🏷 Quản Lý Thể Loại</button>
+            <button class="auth-tab-btn" onclick="switchAdminTab('users')">👥 Quản Lý Tài Khoản</button>
+          </div>
+
+          <!-- Tab Content: Songs -->
+          <div class="admin-tab-pane" id="adminTabSongs">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px">
+              <input type="text" id="adminSongFilterInp" class="form-input" style="max-width:300px; padding:8px 14px" placeholder="Lọc bài hát theo tên hoặc ca sĩ..."/>
+              <button class="btn-admin-action primary" id="btnOpenAddSongModalFromTab">
+                ➕ Thêm Bài Hát Mới
+              </button>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px">ID</th>
+                    <th style="width:60px">Ảnh</th>
+                    <th>Tên Bài Hát</th>
+                    <th>Ca Sĩ</th>
+                    <th>Thể Loại</th>
+                    <th>Album</th>
+                    <th>Lượt Nghe</th>
+                    <th style="text-align:right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminSongsTableBody">
+                  <!-- Injected by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab Content: Singers -->
+          <div class="admin-tab-pane" id="adminTabSingers" style="display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px">
+              <h3 style="font-size:16px; font-weight:700">Danh Sách Ca Sĩ / Nghệ Sĩ</h3>
+              <button class="btn-admin-action primary" id="btnAdminAddSinger">
+                ➕ Thêm Ca Sĩ Mới
+              </button>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px">ID</th>
+                    <th style="width:60px">Avatar</th>
+                    <th>Tên Nghệ Sĩ</th>
+                    <th>Tiểu Sử</th>
+                    <th style="text-align:right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminSingersTableBody">
+                  <!-- Injected by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab Content: Albums -->
+          <div class="admin-tab-pane" id="adminTabAlbums" style="display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px">
+              <h3 style="font-size:16px; font-weight:700">Danh Sách Album Phòng Thu</h3>
+              <button class="btn-admin-action primary" id="btnAdminAddAlbum">
+                ➕ Thêm Album Mới
+              </button>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px">ID</th>
+                    <th style="width:60px">Bìa</th>
+                    <th>Tên Album</th>
+                    <th>Ca Sĩ</th>
+                    <th>Ngày Tạo</th>
+                    <th style="text-align:right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminAlbumsTableBody">
+                  <!-- Injected by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab Content: Types -->
+          <div class="admin-tab-pane" id="adminTabTypes" style="display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px">
+              <h3 style="font-size:16px; font-weight:700">Danh Mục Thể Loại Nhạc</h3>
+              <button class="btn-admin-action primary" id="btnAdminAddType">
+                ➕ Thêm Thể Loại Mới
+              </button>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px">ID</th>
+                    <th style="width:60px">Ảnh</th>
+                    <th>Tên Thể Loại</th>
+                    <th style="text-align:right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminTypesTableBody">
+                  <!-- Injected by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab Content: Users -->
+          <div class="admin-tab-pane" id="adminTabUsers" style="display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px">
+              <h3 style="font-size:16px; font-weight:700">Danh Sách Tài Khoản Người Dùng</h3>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px">ID</th>
+                    <th>Tên Đăng Nhập</th>
+                    <th>Họ Và Tên</th>
+                    <th>Cấp Quyền</th>
+                    <th>Thời Điểm Đăng Ký</th>
+                    <th style="text-align:right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUsersTableBody">
+                  <!-- Injected by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ===================== FIXED AUDIO PLAYER ===================== -->
+<footer class="player-bar">
+  <!-- Hidden Real Audio Element -->
+  <audio id="audioElement" preload="metadata"></audio>
+
+  <!-- Left: Song Information -->
+  <div class="player-left">
+    <div class="vinyl-wrap">
+      <div class="vinyl-disc" id="vinyl">
+        <div class="vinyl-grooves"></div>
+        <div class="vinyl-center-label" id="vinylLabel" style="background-image:url('https://i.scdn.co/image/ab67616d0000b273b315e8bb7ef5e57e9a25bb0f'); background-size:cover;"></div>
+      </div>
+    </div>
+    <div class="player-track-info">
+      <p class="pti-title" id="playerSongTitle">Chìm Sâu (feat. Trung Trần)</p>
+      <p class="pti-artist" id="playerSingerName">RPT MCK</p>
+    </div>
+    <button class="player-heart-btn" id="playerLikeBtn" title="Thêm vào bài hát yêu thích">
+      <svg width="17" height="17" fill="none" stroke="#6b7280" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+    </button>
+  </div>
+
+  <!-- Center: Controls & Progress -->
+  <div class="player-center">
+    <div class="player-live-wave" id="playerLiveWave">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="player-controls">
+      <button class="ctrl-btn" id="btnShuffle" title="Phát ngẫu nhiên"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg></button>
+      <button class="ctrl-btn" id="btnPrev" title="Bài trước"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg></button>
+      
+      <button class="play-pause-btn" id="mainPlayBtn" title="Phát / Tạm dừng">
+        <svg class="ico-play" width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+        <svg class="ico-pause" width="18" height="18" fill="currentColor" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+
+      <button class="ctrl-btn" id="btnNext" title="Bài kế tiếp"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+      <button class="ctrl-btn" id="btnRepeat" title="Lặp lại bài hát"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></button>
+    </div>
+
+    <div class="progress-wrap">
+      <span class="p-time" id="currTime">0:00</span>
+      <div class="p-track" id="progressTrack">
+        <div class="p-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <span class="p-time" id="totalDuration">2:53</span>
+    </div>
+  </div>
+
+  <!-- Right: Volume & Options -->
+  <div class="player-right">
+    <button class="ctrl-btn" id="btnMuteToggle" title="Bật/Tắt âm">
+      <svg id="icoVolume" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+    </button>
+    <div class="vol-track" id="volTrack">
+      <div class="vol-fill" id="volFill" style="width:80%"></div>
+    </div>
+  </div>
+</footer>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- 1. MODAL AUTH: ĐĂNG NHẬP / ĐĂNG KÝ / ĐỔI MẬT KHẨU -->
+<div class="sw-modal-overlay" id="modalAuth">
+  <div class="sw-modal-box" style="max-width:440px">
+    <div class="sw-modal-header" style="border-bottom:none; padding-bottom:0">
+      <div style="display:flex; width:100%">
+        <button class="auth-tab-btn active" id="tabAuthLogin" onclick="switchAuthTab('login')">Đăng Nhập</button>
+        <button class="auth-tab-btn" id="tabAuthRegister" onclick="switchAuthTab('register')">Đăng Ký</button>
+        <button class="auth-tab-btn" id="tabAuthChangePass" onclick="switchAuthTab('changepass')">Đổi Mật Khẩu</button>
+      </div>
+      <button class="btn-close-modal" onclick="closeAuthModal()">&times;</button>
+    </div>
+
+    <!-- Form Đăng Nhập (Hình 2.27 Báo cáo) -->
+    <div id="authPaneLogin" class="sw-modal-body" style="padding-top:16px">
+      <h3 style="font-size:20px; font-weight:800; margin-bottom:6px">Chào mừng bạn trở lại!</h3>
+      <p style="color:var(--muted2); font-size:13px; margin-bottom:18px">Đăng nhập để đồng bộ playlist cá nhân và nghe nhạc không giới hạn</p>
+      
+      <form id="formLogin" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Tên đăng nhập *</label>
+          <input type="text" class="form-input" id="loginUsername" placeholder="Nhập username (VD: admin, mck_fan)" required/>
+        </div>
+        <div class="form-group" style="margin-bottom:18px">
+          <label class="form-label">Mật khẩu *</label>
+          <input type="password" class="form-input" id="loginPassword" placeholder="Nhập mật khẩu (Mặc định: 123456)" required/>
+        </div>
+        <button type="submit" class="btn-hero-play" style="width:100%; justify-content:center; margin-bottom:12px">
+          <span>Đăng Nhập Ngay</span>
+        </button>
+      </form>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:12px; margin-top:14px; font-size:12px; color:var(--muted2)">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+          <span>Tài khoản mẫu Admin: <strong>admin</strong> (pass: <strong>123456</strong>)</span>
+          <button type="button" class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px" onclick="fillQuickAdmin()">Điền nhanh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Đăng Ký (Hình 2.28 Báo cáo) -->
+    <div id="authPaneRegister" class="sw-modal-body" style="display:none; padding-top:16px">
+      <h3 style="font-size:20px; font-weight:800; margin-bottom:6px">Tạo Tài Khoản Mới</h3>
+      <p style="color:var(--muted2); font-size:13px; margin-bottom:18px">Đăng ký thành viên để lưu trữ bài hát và tạo playlist theo sở thích</p>
+      
+      <form id="formRegister" onsubmit="handleRegisterSubmit(event)">
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Tên đăng nhập *</label>
+          <input type="text" class="form-input" id="regUsername" placeholder="Chữ cái không dấu (VD: nguyen_van_a)" required/>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Họ và tên hiển thị</label>
+          <input type="text" class="form-input" id="regFullName" placeholder="Họ và tên của bạn"/>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Mật khẩu *</label>
+          <input type="password" class="form-input" id="regPassword" placeholder="Tối thiểu 6 ký tự" required/>
+        </div>
+        <div class="form-group" style="margin-bottom:18px">
+          <label class="form-label">Xác nhận mật khẩu *</label>
+          <input type="password" class="form-input" id="regConfirmPassword" placeholder="Nhập lại mật khẩu" required/>
+        </div>
+        <button type="submit" class="btn-hero-play" style="width:100%; justify-content:center">
+          <span>Xác Nhận Đăng Ký</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Form Đổi Mật Khẩu (Hình 2.35 Báo cáo) -->
+    <div id="authPaneChangePass" class="sw-modal-body" style="display:none; padding-top:16px">
+      <h3 style="font-size:20px; font-weight:800; margin-bottom:6px">Thay Đổi Mật Khẩu</h3>
+      <p style="color:var(--muted2); font-size:13px; margin-bottom:18px">Bảo vệ tài khoản bằng việc cập nhật mật khẩu định kỳ</p>
+      
+      <form id="formChangePassword" onsubmit="handleChangePasswordSubmit(event)">
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Mật khẩu cũ *</label>
+          <input type="password" class="form-input" id="chgOldPassword" placeholder="Mật khẩu hiện tại" required/>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Mật khẩu mới *</label>
+          <input type="password" class="form-input" id="chgNewPassword" placeholder="Mật khẩu mới" required/>
+        </div>
+        <div class="form-group" style="margin-bottom:18px">
+          <label class="form-label">Xác nhận mật khẩu mới *</label>
+          <input type="password" class="form-input" id="chgConfirmPassword" placeholder="Nhập lại mật khẩu mới" required/>
+        </div>
+        <button type="submit" class="btn-hero-play" style="width:100%; justify-content:center">
+          <span>Lưu Mật Khẩu Mới</span>
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- 2. MODAL THÊM PLAYLIST (Hình 2.31 Báo cáo) -->
+<div class="sw-modal-overlay" id="modalAddPlaylist">
+  <div class="sw-modal-box" style="max-width:440px">
+    <div class="sw-modal-header">
+      <h3 class="sw-modal-title">Tạo Playlist Mới</h3>
+      <button class="btn-close-modal" onclick="closeModal('modalAddPlaylist')">&times;</button>
+    </div>
+    <form id="formCreatePlaylist" onsubmit="handleCreatePlaylistSubmit(event)" class="sw-modal-body">
+      <div class="form-group" style="margin-bottom:18px">
+        <label class="form-label">Tên danh sách phát *</label>
+        <input type="text" class="form-input" id="inpPlaylistTitle" placeholder="Ví dụ: Nhạc Học Tập, Chill Cuối Tuần..." required/>
+      </div>
+      <div class="sw-modal-actions">
+        <button type="button" class="btn-admin-action secondary" onclick="closeModal('modalAddPlaylist')">Hủy bỏ</button>
+        <button type="submit" class="btn-admin-action primary">Tạo Playlist</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. MODAL THÊM BÀI HÁT VÀO PLAYLIST (Hình 2.36 Báo cáo) -->
+<div class="sw-modal-overlay" id="modalAddToPlaylist">
+  <div class="sw-modal-box" style="max-width:440px">
+    <div class="sw-modal-header">
+      <h3 class="sw-modal-title">Thêm Vào Playlist</h3>
+      <button class="btn-close-modal" onclick="closeModal('modalAddToPlaylist')">&times;</button>
+    </div>
+    <div class="sw-modal-body">
+      <p style="color:var(--muted2); font-size:13px; margin-bottom:14px">Chọn playlist bạn muốn thêm bài hát <strong id="addToPlSongTitle" style="color:#fff"></strong>:</p>
+      <div id="addToPlaylistOptionsList" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto">
+        <!-- Injected by JavaScript -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. MODAL THÊM BÀI HÁT MỚI (Hình 2.42 Báo cáo - Admin Upload Supabase) -->
+<div class="sw-modal-overlay" id="modalAddSong">
+  <div class="sw-modal-box" style="max-width:600px">
+    <div class="sw-modal-header">
+      <div style="display:flex; align-items:center; gap:10px">
+        <span style="font-size:22px">🎵</span>
+        <h3 class="sw-modal-title">Thêm Bài Hát Mới (Upload Audio MP3)</h3>
+      </div>
+      <button class="btn-close-modal" onclick="closeModal('modalAddSong')">&times;</button>
+    </div>
+    <form id="formAddSong" onsubmit="handleAddSongSubmit(event)" class="sw-modal-body">
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Tên bài hát *</label>
+        <input type="text" class="form-input" id="inpSongTitle" placeholder="Ví dụ: Chìm Sâu, Đánh Đổi, TETVOVEN..." required/>
+      </div>
+      <div class="af-row-2" style="margin-bottom:14px">
+        <div class="form-group">
+          <label class="form-label">Ca sĩ / Nghệ sĩ *</label>
+          <select class="form-input" id="inpSongSinger" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Thể loại *</label>
+          <select class="form-input" id="inpSongType" required></select>
+        </div>
+      </div>
+      <div class="af-row-2" style="margin-bottom:14px">
+        <div class="form-group">
+          <label class="form-label">Album đĩa nhạc</label>
+          <select class="form-input" id="inpSongAlbum"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Thời lượng (giây)</label>
+          <input type="number" class="form-input" id="inpSongDuration" value="180" min="10"/>
+        </div>
+      </div>
+      <div class="af-row-2" style="margin-bottom:14px">
+        <div class="form-group">
+          <label class="form-label">Tệp âm thanh MP3 / FLAC *</label>
+          <input type="file" class="form-input" id="inpSongAudioFile" accept="audio/*" required/>
+          <span style="font-size:11px; color:var(--muted)">Đẩy trực tiếp lên Supabase Bucket 'songs'</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ảnh bìa bài hát (JPG, PNG)</label>
+          <input type="file" class="form-input" id="inpSongCoverFile" accept="image/*"/>
+          <span style="font-size:11px; color:var(--muted)">Đẩy trực tiếp lên Supabase Bucket 'covers'</span>
+        </div>
+      </div>
+      <div class="sw-modal-actions">
+        <button type="button" class="btn-admin-action secondary" onclick="closeModal('modalAddSong')">Hủy bỏ</button>
+        <button type="submit" class="btn-admin-action primary" id="btnSubmitSongUpload">
+          🚀 Tải Lên & Lưu Vào CSDL
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 5. MODAL THÊM CA SĨ -->
+<div class="sw-modal-overlay" id="modalAddArtist">
+  <div class="sw-modal-box" style="max-width:500px">
+    <div class="sw-modal-header">
+      <h3 class="sw-modal-title">Thêm Ca Sĩ / Nghệ Sĩ Mới</h3>
+      <button class="btn-close-modal" onclick="closeModal('modalAddArtist')">&times;</button>
+    </div>
+    <form id="formAddArtist" onsubmit="handleAddArtistSubmit(event)" class="sw-modal-body">
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Tên nghệ sĩ *</label>
+        <input type="text" class="form-input" id="inpArtistName" placeholder="Ví dụ: RPT MCK, Obito, Wxrdie..." required/>
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Ảnh đại diện (URL ảnh chân dung)</label>
+        <input type="url" class="form-input" id="inpArtistAvatar" placeholder="https://..."/>
+      </div>
+      <div class="form-group" style="margin-bottom:18px">
+        <label class="form-label">Tiểu sử nghệ thuật</label>
+        <textarea class="form-input" id="inpArtistBio" rows="3" placeholder="Đôi nét về sự nghiệp, phong cách..."></textarea>
+      </div>
+      <div class="sw-modal-actions">
+        <button type="button" class="btn-admin-action secondary" onclick="closeModal('modalAddArtist')">Hủy bỏ</button>
+        <button type="submit" class="btn-admin-action primary">Lưu Nghệ Sĩ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 6. MODAL THÊM ALBUM -->
+<div class="sw-modal-overlay" id="modalAddAlbum">
+  <div class="sw-modal-box" style="max-width:500px">
+    <div class="sw-modal-header">
+      <h3 class="sw-modal-title">Tạo Album Mới</h3>
+      <button class="btn-close-modal" onclick="closeModal('modalAddAlbum')">&times;</button>
+    </div>
+    <form id="formAddAlbum" onsubmit="handleAddAlbumSubmit(event)" class="sw-modal-body">
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Tên Album *</label>
+        <input type="text" class="form-input" id="inpAlbumName" placeholder="Ví dụ: 99%, Đánh Đổi..." required/>
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Ca sĩ sở hữu Album *</label>
+        <select class="form-input" id="inpAlbumSinger" required></select>
+      </div>
+      <div class="form-group" style="margin-bottom:18px">
+        <label class="form-label">URL ảnh bìa Album</label>
+        <input type="url" class="form-input" id="inpAlbumCoverUrl" placeholder="https://..."/>
+      </div>
+      <div class="sw-modal-actions">
+        <button type="button" class="btn-admin-action secondary" onclick="closeModal('modalAddAlbum')">Hủy bỏ</button>
+        <button type="submit" class="btn-admin-action primary">Xuất Bản Album</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
+using WebNgheNhac.Models;
 
 namespace WebNgheNhac.Controllers
 {
@@ -77,5 +79,52 @@ namespace WebNgheNhac.Controllers
                 .ToListAsync();
             return Ok(songs);
         }
+
+        // 4. POST: api/singers (Thêm ca sĩ mới)
+        [HttpPost]
+        public async Task<IActionResult> CreateSinger([FromBody] CreateSingerRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest(new { message = "Tên ca sĩ không được để trống" });
+            }
+
+            var singer = new Singer
+            {
+                Name = request.Name,
+                Avatar = string.IsNullOrWhiteSpace(request.Avatar) ? "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4" : request.Avatar,
+                Bio = request.Bio
+            };
+
+            _context.Singers.Add(singer);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Thêm ca sĩ thành công", singer });
+        }
+
+        // 5. DELETE: api/singers/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteSinger(int id)
+        {
+            var singer = await _context.Singers.FindAsync(id);
+            if (singer == null)
+            {
+                return NotFound(new { message = "Không tìm thấy ca sĩ để xóa" });
+            }
+
+            _context.Singers.Remove(singer);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa ca sĩ thành công" });
+        }
+    }
+
+    public class CreateSingerRequest
+    {
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = null!;
+        public string? Avatar { get; set; }
+        public string? Bio { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.Data;
+﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
@@ -121,19 +121,104 @@ namespace WebNgheNhac.Controllers
                 })
             });
         }
+
+        // 4. POST: api/auth/change-password (Đổi mật khẩu)
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var user = await _context.Users.FindAsync(request.UserId);
+            if (user == null)
+            {
+                return NotFound(new { message = "Không tìm thấy người dùng" });
+            }
+
+            bool isOldPasswordValid = BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash);
+            if (!isOldPasswordValid)
+            {
+                return BadRequest(new { message = "Mật khẩu cũ không chính xác" });
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đổi mật khẩu thành công" });
+        }
+
+        // 5. GET: api/auth/users (Admin xem danh sách user)
+        [HttpGet("users")]
+        public async Task<IActionResult> GetUsers()
+        {
+            var users = await _context.Users
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    u.FullName,
+                    u.Avatar,
+                    u.Level,
+                    u.CreatedAt,
+                    TotalPlaylists = u.Playlists.Count
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+        // 6. DELETE: api/auth/users/{id} (Admin xóa tài khoản)
+        [HttpDelete("users/{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+            {
+                return NotFound(new { message = "Không tìm thấy người dùng" });
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa tài khoản thành công" });
+        }
     }
 
     // Các lớp định dạng dữ liệu gửi lên (DTOs)
     public class RegisterRequest
     {
+        [Required]
+        [MinLength(3)]
         public string Username { get; set; } = null!;
+
+        [Required]
+        [MinLength(6)]
         public string Password { get; set; } = null!;
+
+        [Required]
         public string? FullName { get; set; }
+
         public string? Avatar { get; set; }
     }
+
     public class LoginRequest
     {
+        [Required]
+        [MinLength(3)]
         public string Username { get; set; } = null!;
+
+        [Required]
+        [MinLength(6)]
         public string Password { get; set; } = null!;
+    }
+
+    public class ChangePasswordRequest
+    {
+        [Range(1, int.MaxValue)]
+        public int UserId { get; set; }
+
+        [Required]
+        public string OldPassword { get; set; } = null!;
+
+        [Required]
+        [MinLength(6)]
+        public string NewPassword { get; set; } = null!;
     }
 }

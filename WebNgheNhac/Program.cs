@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
+using WebNgheNhac.Middleware;
 using Supabase;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,15 @@ builder.Services.AddSingleton(provider =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 // Kích hoạt Swagger để sinh tài liệu API tự động
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -36,6 +46,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseCors();
+app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseRouting();

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
 using WebNgheNhac.Models;
@@ -21,11 +22,21 @@ namespace WebNgheNhac.Controllers
             _supabase = supabase;
         }
 
-        // 1. GET: api/songs
+        // 1. GET: api/songs?page=1&pageSize=20
         [HttpGet]
-        public async Task<IActionResult> GetSongs()
+        public async Task<IActionResult> GetSongs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 50) pageSize = 50;
+
+            var total = await _context.Songs.CountAsync();
+            var totalPages = (int)Math.Ceiling(total / (double)pageSize);
+
             var songs = await _context.Songs
+                .OrderBy(s => s.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Include(s => s.Singer) // Bao gồm thông tin ca sĩ
                 .Include(s => s.Type)   // Bao gồm thông tin thể loại
                 .Select(s => new
@@ -40,7 +51,15 @@ namespace WebNgheNhac.Controllers
                     TypeName = s.Type != null ? s.Type.TypeName : "Chưa rõ"
                 })
                 .ToListAsync();
-            return Ok(songs);
+
+            return Ok(new
+            {
+                data = songs,
+                total,
+                page,
+                pageSize,
+                totalPages
+            });
         }
         
         // 2. GET: api/songs/{id}
@@ -79,6 +98,7 @@ namespace WebNgheNhac.Controllers
 
         // 4. POST: api/songs (Upload file MP3 và Ảnh lên Supabase rồi lưu vào SQL)
         [HttpPost]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateSong(
             [FromForm] string title,
             [FromForm] int singerId,
@@ -137,5 +157,68 @@ namespace WebNgheNhac.Controllers
 
             return Ok(new { message = "Thêm bài hát thành công", song });
         }
+
+        // 4b. POST: api/songs (Tạo bài hát qua JSON DTO)
+        [HttpPost]
+        [Consumes("application/json")]
+        public async Task<IActionResult> CreateSongFromJson([FromBody] CreateSongRequest request)
+        {
+            var song = new Song
+            {
+                Title = request.Title,
+                SingerId = request.SingerId,
+                TypeId = request.TypeId,
+                AlbumId = request.AlbumId,
+                Duration = request.Duration,
+                AudioUrl = request.AudioUrl,
+                CoverUrl = request.CoverUrl,
+                Plays = 0,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Songs.Add(song);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Thêm bài hát thành công", song });
+        }
+
+        // 5. DELETE: api/songs/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteSong(int id)
+        {
+            var song = await _context.Songs.FindAsync(id);
+            if (song == null)
+            {
+                return NotFound(new { message = "Không tìm thấy bài hát để xóa" });
+            }
+
+            _context.Songs.Remove(song);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa bài hát thành công" });
+        }
+    }
+
+    public class CreateSongRequest
+    {
+        [Required]
+        public string Title { get; set; } = null!;
+
+        [Required]
+        public string AudioUrl { get; set; } = null!;
+
+        [Required]
+        public string CoverUrl { get; set; } = null!;
+
+        [Range(1, int.MaxValue)]
+        public int SingerId { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int TypeId { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int? AlbumId { get; set; }
+
+        public int Duration { get; set; }
     }
 }
