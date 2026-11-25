@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
@@ -176,7 +176,7 @@ namespace WebNgheNhac.Controllers
     // Các DTOs nhập dữ liệu
     public class CreatePlaylistRequest
     {
-        public string Name { get; set; } = null;
+        public string Name { get; set; } = null!;
         public int UserId { get; set; }
     }
 
