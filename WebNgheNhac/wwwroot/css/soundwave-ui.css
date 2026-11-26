@@ -393,15 +393,17 @@
 .player-bar {
   grid-area: player;
   position: relative;
-  z-index: 100;
-  display: grid;
-  grid-template-columns: 280px 1fr 220px;
-  align-items: center;
-  padding: 0 24px;
-  gap: 24px;
-  background: rgba(10, 12, 18, 0.9);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(32px);
+  z-index: 1000;
+  display: grid !important;
+  grid-template-columns: 280px 1fr 220px !important;
+  align-items: center !important;
+  padding: 0 24px !important;
+  gap: 20px !important;
+  height: var(--player, 88px) !important;
+  min-height: 88px !important;
+  background: rgba(10, 12, 18, 0.96) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(32px) !important;
 }
 
 .player-left {
@@ -456,17 +458,21 @@
 }
 
 .player-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  width: 100% !important;
 }
 
 .player-controls {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
 }
 
 .ctrl-btn {

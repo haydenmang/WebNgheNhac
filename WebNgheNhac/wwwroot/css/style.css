@@ -18,7 +18,7 @@
   --muted:   #5a6070;
   --muted2:  #8891a4;
   --sidebar: 230px;
-  --player:  82px;
+  --player:  88px;
   --top:     64px;
 }
 
@@ -812,8 +812,8 @@ kbd {
 
 /* Controls */
 .player-controls {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 8px;
+  display: flex; flex-direction: row;
+  align-items: center; justify-content: center; gap: 14px;
 }
 .ctrl-row { display: flex; align-items: center; gap: 4px; }
 
