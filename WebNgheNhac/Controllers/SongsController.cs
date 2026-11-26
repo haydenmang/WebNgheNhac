@@ -22,13 +22,13 @@ namespace WebNgheNhac.Controllers
             _supabase = supabase;
         }
 
-        // 1. GET: api/songs?page=1&pageSize=20
+        // 1. GET: api/songs?page=1&pageSize=50
         [HttpGet]
-        public async Task<IActionResult> GetSongs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetSongs([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 20;
-            if (pageSize > 50) pageSize = 50;
+            if (pageSize > 200) pageSize = 200;
 
             var total = await _context.Songs.CountAsync();
             var totalPages = (int)Math.Ceiling(total / (double)pageSize);
@@ -39,6 +39,7 @@ namespace WebNgheNhac.Controllers
                 .Take(pageSize)
                 .Include(s => s.Singer) // Bao gồm thông tin ca sĩ
                 .Include(s => s.Type)   // Bao gồm thông tin thể loại
+                .Include(s => s.Album)  // Bao gồm thông tin album
                 .Select(s => new
                 {
                     s.Id,
@@ -47,8 +48,12 @@ namespace WebNgheNhac.Controllers
                     s.CoverUrl,
                     s.Duration,
                     s.Plays,
+                    s.SingerId,
+                    s.TypeId,
+                    s.AlbumId,
                     SingerName = s.Singer != null ? s.Singer.Name : "Chưa rõ",
-                    TypeName = s.Type != null ? s.Type.TypeName : "Chưa rõ"
+                    TypeName = s.Type != null ? s.Type.TypeName : "Chưa rõ",
+                    AlbumName = s.Album != null ? s.Album.AlbumName : null
                 })
                 .ToListAsync();
 
@@ -96,13 +101,14 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Đã tăng lượt nghe thành công!", currentPlays = song.Plays });
         }
 
-        // 4. POST: api/songs (Upload file MP3 và Ảnh lên Supabase rồi lưu vào SQL)
+        // 4. POST: api/songs (Upload file MP3 và Ảnh lên Supabase hoặc lưu cục bộ rồi lưu vào SQL)
         [HttpPost]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateSong(
             [FromForm] string title,
             [FromForm] int singerId,
             [FromForm] int typeId,
+            [FromForm] int? albumId,
             [FromForm] int? ablumId,
             [FromForm] int duration,
             IFormFile fileAudio,
@@ -114,37 +120,58 @@ namespace WebNgheNhac.Controllers
                 return BadRequest(new { message = "File nhạc không được để trống!" });
             }
 
+            int? resolvedAlbumId = albumId ?? ablumId;
             string audioUrl = "";
             string coverUrl = "";
+            var audioFileName = Guid.NewGuid().ToString() + Path.GetExtension(fileAudio.FileName);
 
-            // A. Đẩy file nhạc lên bucket 'songs' của Supabase
-            using (var memoryStreamAudio = new MemoryStream())
+            // A. Đẩy file nhạc lên bucket 'songs' của Supabase (fallback lưu vào wwwroot/uploads/songs nếu Supabase chặn quyền ghi)
+            try
             {
+                using var memoryStreamAudio = new MemoryStream();
                 await fileAudio.CopyToAsync(memoryStreamAudio);
-                var audioFileName = Guid.NewGuid().ToString() + Path.GetExtension(fileAudio.FileName);
                 await _supabase.Storage.From("songs").Upload(memoryStreamAudio.ToArray(), audioFileName);
                 audioUrl = _supabase.Storage.From("songs").GetPublicUrl(audioFileName);
             }
+            catch
+            {
+                var localSongsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "songs");
+                Directory.CreateDirectory(localSongsDir);
+                var localAudioPath = Path.Combine(localSongsDir, audioFileName);
+                using var fs = new FileStream(localAudioPath, FileMode.Create);
+                await fileAudio.CopyToAsync(fs);
+                audioUrl = $"/uploads/songs/{audioFileName}";
+            }
 
-            // B. Đẩy file ảnh bìa lên bucket 'covers' của Supabase (nếu người dùng có chọn ảnh)
+            // B. Đẩy file ảnh bìa lên bucket 'covers' của Supabase (fallback lưu vào wwwroot/uploads/covers)
             if (fileCover != null && fileCover.Length > 0)
             {
-                using (var memoryStreamCover = new MemoryStream())
+                var coverFileName = Guid.NewGuid().ToString() + Path.GetExtension(fileCover.FileName);
+                try
                 {
+                    using var memoryStreamCover = new MemoryStream();
                     await fileCover.CopyToAsync(memoryStreamCover);
-                    var coverFileName = Guid.NewGuid().ToString() + Path.GetExtension(fileCover.FileName);
                     await _supabase.Storage.From("covers").Upload(memoryStreamCover.ToArray(), coverFileName);
                     coverUrl = _supabase.Storage.From("covers").GetPublicUrl(coverFileName);
                 }
+                catch
+                {
+                    var localCoversDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "covers");
+                    Directory.CreateDirectory(localCoversDir);
+                    var localCoverPath = Path.Combine(localCoversDir, coverFileName);
+                    using var fs = new FileStream(localCoverPath, FileMode.Create);
+                    await fileCover.CopyToAsync(fs);
+                    coverUrl = $"/uploads/covers/{coverFileName}";
+                }
             }
 
-            // C. Tạo bản ghi Song mới và kluwu vào SQL Server
+            // C. Tạo bản ghi Song mới và lưu vào SQL Server
             var song = new Song
             {
                 Title = title,
                 SingerId = singerId,
                 TypeId = typeId,
-                AlbumId = ablumId,
+                AlbumId = resolvedAlbumId,
                 Duration = duration,
                 AudioUrl = audioUrl,
                 CoverUrl = string.IsNullOrEmpty(coverUrl) ? "/images/default-cover.png" : coverUrl,
@@ -186,12 +213,18 @@ namespace WebNgheNhac.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSong(int id)
         {
-            var song = await _context.Songs.FindAsync(id);
+            var song = await _context.Songs
+                .Include(s => s.PlaylistSongs)
+                .FirstOrDefaultAsync(s => s.Id == id);
             if (song == null)
             {
                 return NotFound(new { message = "Không tìm thấy bài hát để xóa" });
             }
 
+            if (song.PlaylistSongs.Any())
+            {
+                _context.PlaylistSongs.RemoveRange(song.PlaylistSongs);
+            }
             _context.Songs.Remove(song);
             await _context.SaveChangesAsync();
 

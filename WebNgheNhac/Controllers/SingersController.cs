@@ -106,12 +106,24 @@ namespace WebNgheNhac.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSinger(int id)
         {
-            var singer = await _context.Singers.FindAsync(id);
+            var singer = await _context.Singers
+                .Include(s => s.Songs)
+                .Include(s => s.Albums)
+                .FirstOrDefaultAsync(s => s.Id == id);
             if (singer == null)
             {
                 return NotFound(new { message = "Không tìm thấy ca sĩ để xóa" });
             }
 
+            if (singer.Songs.Any())
+            {
+                return BadRequest(new { message = $"Không thể xóa ca sĩ '{singer.Name}' vì đang có {singer.Songs.Count} bài hát thuộc ca sĩ này. Vui lòng xóa bài hát trước!" });
+            }
+
+            if (singer.Albums.Any())
+            {
+                _context.Albums.RemoveRange(singer.Albums);
+            }
             _context.Singers.Remove(singer);
             await _context.SaveChangesAsync();
 

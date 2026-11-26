@@ -17,7 +17,7 @@ namespace WebNgheNhac.Controllers
             _context = context;
         }
 
-        // 1. GET: api/playlist/user/1 (Lấy tất cả playlist của 1 người dùng)
+        // 1. GET: api/playlists/user/1 (Lấy tất cả playlist của 1 người dùng kèm danh sách ID bài hát)
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserPlaylists(int userId)
         {
@@ -27,8 +27,10 @@ namespace WebNgheNhac.Controllers
                 {
                     p.Id,
                     p.Name,
+                    p.UserId,
                     p.CreatedAt,
-                    TotalSongs = p.PlaylistSongs.Count //Đếm số bài hát trong playlist
+                    TotalSongs = p.PlaylistSongs.Count,
+                    SongIds = p.PlaylistSongs.Select(ps => ps.SongId).ToList()
                 })
                 .ToListAsync();
 
@@ -157,16 +159,22 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Đã gỡ bài hát khỏi danh sách phát" });
         }
 
-        // 6. DELETE: api/playlsit/5 (Xóa luôn cả playlist)
+        // 6. DELETE: api/playlists/5 (Xóa luôn cả playlist)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePlaylist(int id)
         {
-            var playlist = await _context.Playlists.FindAsync(id);
+            var playlist = await _context.Playlists
+                .Include(p => p.PlaylistSongs)
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (playlist == null)
             {
                 return NotFound(new { message = "Không tìm thấy danh sách để xóa" });
             }
 
+            if (playlist.PlaylistSongs.Any())
+            {
+                _context.PlaylistSongs.RemoveRange(playlist.PlaylistSongs);
+            }
             _context.Playlists.Remove(playlist);
             await _context.SaveChangesAsync();
 

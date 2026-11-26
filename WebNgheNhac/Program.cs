@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using WebNgheNhac.Data;
 using WebNgheNhac.Middleware;
@@ -15,8 +16,12 @@ var supabaseKey = builder.Configuration["Supabase:Key"] ?? "";
 builder.Services.AddSingleton(provider =>
     new Supabase.Client(supabaseUrl, supabaseKey, new SupabaseOptions { AutoConnectRealtime = false }));
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+// Add services to the container (bỏ qua vòng lặp tuần hoàn JSON khi trả về Entity có Include)
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -54,6 +59,8 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.MapControllers();
 
 app.MapControllerRoute(
     name: "default",

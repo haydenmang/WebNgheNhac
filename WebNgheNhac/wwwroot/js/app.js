@@ -2260,20 +2260,42 @@ function renderAdminTypesTable() {
   const tbody = document.getElementById('adminTypesTableBody');
   if (!tbody) return;
   tbody.innerHTML = state.types.map(t => {
-    const count = t.totalSongs ?? t.TotalSongs ?? state.songs.filter(s => s.typeId === t.id || s.typeName === t.typeName).length;
+    const tid = t.id ?? t.Id;
+    const tname = t.typeName ?? t.TypeName;
+    const count = t.totalSongs ?? t.TotalSongs ?? state.songs.filter(s => s.typeId === tid || s.typeName === tname).length;
     return `
       <tr>
-        <td>${t.id ?? t.Id}</td>
+        <td>${tid}</td>
         <td>
           <img src="${t.imageUrl ?? t.ImageUrl ?? 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad'}" style="width:36px; height:36px; border-radius:6px; object-fit:cover"/>
         </td>
-        <td style="font-weight:600; color:#fff">${t.typeName ?? t.TypeName}</td>
+        <td style="font-weight:600; color:#fff">${tname} <span style="font-size:11px; color:var(--muted2); font-weight:400">(${count} bài hát)</span></td>
         <td style="text-align:right">
-          <span class="btn-admin-pill">${count} bài hát • Hoạt động</span>
+          <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#ef4444" onclick="adminDeleteType(${tid})">🗑 Xóa</button>
         </td>
       </tr>
     `;
   }).join('');
+}
+
+async function adminDeleteType(id) {
+  const typeObj = state.types.find(t => (t.id ?? t.Id) === id);
+  const tname = typeObj ? (typeObj.typeName ?? typeObj.TypeName) : '';
+  const songsOfType = state.songs.filter(s => s.typeId === id || (tname && s.typeName === tname));
+  if (songsOfType.length > 0) {
+    showToast(`Không thể xóa thể loại "${tname || id}" vì đang có ${songsOfType.length} bài hát thuộc thể loại này!`, true);
+    return;
+  }
+  if (!confirm(`Bạn có chắc muốn xóa thể loại ID ${id}?`)) return;
+  try {
+    const res = await safeFetch(`${API_BASE}/types/${id}`, { method: 'DELETE' });
+    if (res && !res.ok) return;
+  } catch (e) { }
+  state.types = state.types.filter(t => (t.id ?? t.Id) !== id);
+  renderAdminDashboard();
+  renderHomeGenres();
+  populateSongFormSelects();
+  showToast(`Đã xóa thể loại ID ${id}`);
 }
 
 function renderAdminUsersTable() {

@@ -28,8 +28,9 @@ namespace WebNgheNhac.Controllers
                     a.Id,
                     a.AlbumName,
                     a.CoverUrl,
+                    a.SingerId,
                     a.CreatedAt,
-                    SingerName = a.Singer!= null ? a.Singer.Name : "Chưa rõ",
+                    SingerName = a.Singer != null ? a.Singer.Name : "Chưa rõ",
                     TotalSongs = a.Songs.Count // Đếm số lượng bài hát trong album
                 })
                 .ToListAsync();
@@ -108,12 +109,18 @@ namespace WebNgheNhac.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAlbum(int id)
         {
-            var album = await _context.Albums.FindAsync(id);
+            var album = await _context.Albums
+                .Include(a => a.Songs)
+                .FirstOrDefaultAsync(a => a.Id == id);
             if (album == null)
             {
                 return NotFound(new { message = "Không tìm thấy album để xóa" });
             }
 
+            foreach (var song in album.Songs)
+            {
+                song.AlbumId = null;
+            }
             _context.Albums.Remove(album);
             await _context.SaveChangesAsync();
 

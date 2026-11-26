@@ -92,6 +92,29 @@ namespace WebNgheNhac.Controllers
 
             return Ok(new { message = "Thêm thể loại thành công", type });
         }
+
+        // 5. DELETE: api/types/{id} (Xóa thể loại)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteType(int id)
+        {
+            var type = await _context.Types
+                .Include(t => t.Songs)
+                .FirstOrDefaultAsync(t => t.Id == id);
+            if (type == null)
+            {
+                return NotFound(new { message = "Không tìm thấy thể loại để xóa" });
+            }
+
+            if (type.Songs.Any())
+            {
+                return BadRequest(new { message = $"Không thể xóa thể loại '{type.TypeName}' vì đang có {type.Songs.Count} bài hát thuộc thể loại này!" });
+            }
+
+            _context.Types.Remove(type);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa thể loại thành công" });
+        }
     }
 
     public class CreateTypeRequest

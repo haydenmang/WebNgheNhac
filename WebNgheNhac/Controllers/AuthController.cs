@@ -58,6 +58,41 @@ namespace WebNgheNhac.Controllers
             });
         }
 
+        private const string SeedPlaceholderHash = "$2a$11$qRzS6W7kG.9bL8l0kM5cWeu.Zf9B7sW1vN5f1kO7mH8kZ1o7rG9mK";
+
+        private static bool VerifyPasswordSafe(string inputPassword, string storedHash, out bool needsUpgrade)
+        {
+            needsUpgrade = false;
+            if (string.IsNullOrEmpty(storedHash)) return false;
+
+            // Tương thích chuỗi hash mẫu trong Insert_Hiphop_Data.sql (mật khẩu mặc định 123456)
+            if (storedHash == SeedPlaceholderHash && inputPassword == "123456")
+            {
+                needsUpgrade = true;
+                return true;
+            }
+
+            try
+            {
+                if (storedHash.StartsWith("$2"))
+                {
+                    return BCrypt.Net.BCrypt.Verify(inputPassword, storedHash);
+                }
+            }
+            catch
+            {
+                // Fallback nếu chuỗi lưu trong DB không phải định dạng salt BCrypt hợp lệ
+            }
+
+            if (storedHash == inputPassword)
+            {
+                needsUpgrade = true;
+                return true;
+            }
+
+            return false;
+        }
+
         // 2. POST: api/auth/login (đăng nhập hệ thống)
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -69,11 +104,17 @@ namespace WebNgheNhac.Controllers
                 return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không chính xác" });
             }
 
-            // Dùng BCrypt để kiểm tra xem mật khẩu người dùng gõ có khớp với chuỗi băm trong DB không
-            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+            // Dùng BCrypt kiểm tra mật khẩu (tự động nâng cấp hash chuẩn cho dữ liệu seed SQL)
+            bool isPasswordValid = VerifyPasswordSafe(request.Password, user.PasswordHash, out bool needsUpgrade);
             if (!isPasswordValid)
             {
-                return Unauthorized(new { message = "tên đăng nhập hoặc mật khẩu không chính xác" });
+                return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không chính xác" });
+            }
+
+            if (needsUpgrade)
+            {
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                await _context.SaveChangesAsync();
             }
 
             // Đăng nhập thành công -> Trả về thông tin người dùng
@@ -92,12 +133,13 @@ namespace WebNgheNhac.Controllers
             });
         }
 
-        // 3. GET: api/auth/profile/{id} (Lấy thông tin tài khoản & danh sách Playlist)
+        // 3. GET: api/auth/profile/{id} (Lấy thông tin tài khoản & danh sách Playlist kèm đúng số bài hát)
         [HttpGet("profile/{id}")]
         public async Task<IActionResult> GetProfile(int id)
         {
             var user = await _context.Users
                 .Include(u => u.Playlists)
+                    .ThenInclude(p => p.PlaylistSongs)
                 .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null)
             {
@@ -117,7 +159,8 @@ namespace WebNgheNhac.Controllers
                     p.Id,
                     p.Name,
                     p.CreatedAt,
-                    TotalSongs = p.PlaylistSongs.Count
+                    TotalSongs = p.PlaylistSongs.Count,
+                    SongIds = p.PlaylistSongs.Select(ps => ps.SongId).ToList()
                 })
             });
         }
@@ -132,7 +175,7 @@ namespace WebNgheNhac.Controllers
                 return NotFound(new { message = "Không tìm thấy người dùng" });
             }
 
-            bool isOldPasswordValid = BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash);
+            bool isOldPasswordValid = VerifyPasswordSafe(request.OldPassword, user.PasswordHash, out _);
             if (!isOldPasswordValid)
             {
                 return BadRequest(new { message = "Mật khẩu cũ không chính xác" });
@@ -168,12 +211,24 @@ namespace WebNgheNhac.Controllers
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.Playlists)
+                    .ThenInclude(p => p.PlaylistSongs)
+                .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null)
             {
                 return NotFound(new { message = "Không tìm thấy người dùng" });
             }
+            if (user.Username.ToLower() == "admin" || user.Level == 1)
+            {
+                return BadRequest(new { message = "Không thể xóa tài khoản Quản trị viên hệ thống" });
+            }
 
+            foreach (var pl in user.Playlists)
+            {
+                _context.PlaylistSongs.RemoveRange(pl.PlaylistSongs);
+            }
+            _context.Playlists.RemoveRange(user.Playlists);
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
 
