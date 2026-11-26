@@ -1807,7 +1807,8 @@
   transition: opacity 0.25s ease;
 }
 
-.sw-modal-overlay.active {
+.sw-modal-overlay.active,
+.sw-modal-overlay.show {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1824,7 +1825,8 @@
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sw-modal-overlay.active .sw-modal-box {
+.sw-modal-overlay.active .sw-modal-box,
+.sw-modal-overlay.show .sw-modal-box {
   transform: translateY(0) scale(1);
 }
 

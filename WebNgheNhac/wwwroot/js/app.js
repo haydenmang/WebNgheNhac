@@ -238,9 +238,14 @@ const router = (function () {
     // Check admin gate
     if (pageId === 'admin') {
       const isAdmin = state.currentUser && state.currentUser.level === 1;
-      document.getElementById('adminAccessGate').style.display = isAdmin ? 'none' : 'block';
-      document.getElementById('adminDashboardContent').style.display = isAdmin ? 'block' : 'none';
-      if (isAdmin) renderAdminDashboard();
+      if (!isAdmin) {
+        showToast('Chỉ Quản trị viên (Level 1) mới có quyền truy cập trang Quản trị!', true);
+        openAuthModal('login', true);
+        return;
+      }
+      document.getElementById('adminAccessGate').style.display = 'none';
+      document.getElementById('adminDashboardContent').style.display = 'block';
+      renderAdminDashboard();
     }
 
     if (pageId === 'library') {
@@ -1021,7 +1026,7 @@ function updateUserUI() {
   if (user) {
     const initials = (user.fullName || user.username).substring(0, 2).toUpperCase();
     sidebarName.textContent = user.fullName || user.username;
-    sidebarPlan.innerHTML = `<span class="plan-dot"></span>${user.level === 1 ? 'Quản Trị Viên' : 'Thành viên VIP'}`;
+    sidebarPlan.innerHTML = `<span class="plan-dot"></span>${user.level === 1 ? 'Quản Trị Viên (Level 1)' : 'Thành viên (Level 0)'}`;
     sidebarAva.textContent = initials;
     topbarAva.textContent = initials;
 
@@ -1040,6 +1045,7 @@ function updateUserUI() {
       if (navAdmin) navAdmin.style.display = 'flex';
     } else {
       if (adminBadge) adminBadge.style.display = 'none';
+      if (navAdmin) navAdmin.style.display = 'none';
     }
   } else {
     sidebarName.textContent = 'Khách vãng lai';
@@ -1051,17 +1057,24 @@ function updateUserUI() {
     topAuthBtn.textContent = '✦ Đăng nhập';
     topAuthBtn.classList.remove('secondary');
     if (adminBadge) adminBadge.style.display = 'none';
+    if (navAdmin) navAdmin.style.display = 'none';
   }
 }
 
 function openAuthModal(tab = 'login', autoFillAdmin = false) {
-  document.getElementById('modalAuth').classList.add('show');
+  const modal = document.getElementById('modalAuth');
+  if (modal) {
+    modal.classList.add('show', 'active');
+  }
   switchAuthTab(tab);
   if (autoFillAdmin) fillQuickAdmin();
 }
 
 function closeAuthModal() {
-  document.getElementById('modalAuth').classList.remove('show');
+  const modal = document.getElementById('modalAuth');
+  if (modal) {
+    modal.classList.remove('show', 'active');
+  }
 }
 
 function switchAuthTab(tab) {
@@ -1074,9 +1087,15 @@ function switchAuthTab(tab) {
   });
 }
 
+function fillQuickAccount(username, password) {
+  const u = document.getElementById('loginUsername');
+  const p = document.getElementById('loginPassword');
+  if (u) u.value = username;
+  if (p) p.value = password;
+}
+
 function fillQuickAdmin() {
-  document.getElementById('loginUsername').value = 'admin';
-  document.getElementById('loginPassword').value = '123456';
+  fillQuickAccount('admin', '123456');
 }
 
 document.getElementById('btnTopAuth')?.addEventListener('click', () => {
@@ -1125,8 +1144,13 @@ async function handleLoginSubmit(e) {
       localStorage.setItem('sw_user', JSON.stringify(data.user));
       updateUserUI();
       closeAuthModal();
-      showToast(`Đăng nhập thành công! Chào ${data.user.fullName || data.user.username}`);
-      if (data.user.level === 1) router.go('admin');
+      if (data.user.level === 1) {
+        showToast(`👑 Đăng nhập Admin thành công! Xin chào ${data.user.fullName || data.user.username}`);
+        router.go('admin');
+      } else {
+        showToast(`🎵 Đăng nhập thành công! Chào mừng ${data.user.fullName || data.user.username} (Level 0)`);
+        router.go('home');
+      }
       return;
     }
   } catch (err) {
@@ -1140,8 +1164,13 @@ async function handleLoginSubmit(e) {
     localStorage.setItem('sw_user', JSON.stringify(found));
     updateUserUI();
     closeAuthModal();
-    showToast(`Đăng nhập thành công! Chào ${found.fullName}`);
-    if (found.level === 1) router.go('admin');
+    if (found.level === 1) {
+      showToast(`👑 Đăng nhập Admin thành công! Xin chào ${found.fullName}`);
+      router.go('admin');
+    } else {
+      showToast(`🎵 Đăng nhập thành công! Chào mừng ${found.fullName} (Level 0)`);
+      router.go('home');
+    }
   } else {
     showToast('Tên đăng nhập hoặc mật khẩu không chính xác', true);
   }
@@ -1259,7 +1288,7 @@ function openAddToPlaylistModal(songId) {
     `).join('');
   }
 
-  document.getElementById('modalAddToPlaylist').classList.add('show');
+  document.getElementById('modalAddToPlaylist').classList.add('show', 'active');
 }
 
 async function executeAddSongToPlaylist(playlistId) {
@@ -1290,14 +1319,15 @@ async function executeAddSongToPlaylist(playlistId) {
 
 // Modal open/close helpers
 function closeModal(modalId) {
-  document.getElementById(modalId)?.classList.remove('show');
+  const m = document.getElementById(modalId);
+  if (m) m.classList.remove('show', 'active');
 }
 
 document.getElementById('btnSidebarCreatePlaylist')?.addEventListener('click', () => {
-  document.getElementById('modalAddPlaylist').classList.add('show');
+  document.getElementById('modalAddPlaylist').classList.add('show', 'active');
 });
 document.getElementById('btnOpenCreatePlaylistModal')?.addEventListener('click', () => {
-  document.getElementById('modalAddPlaylist').classList.add('show');
+  document.getElementById('modalAddPlaylist').classList.add('show', 'active');
 });
 
 async function handleCreatePlaylistSubmit(e) {
@@ -1544,18 +1574,18 @@ function populateSongFormSelects() {
 // Open modals
 document.getElementById('btnAdminQuickAddSong')?.addEventListener('click', () => {
   populateSongFormSelects();
-  document.getElementById('modalAddSong').classList.add('show');
+  document.getElementById('modalAddSong').classList.add('show', 'active');
 });
 document.getElementById('btnOpenAddSongModalFromTab')?.addEventListener('click', () => {
   populateSongFormSelects();
-  document.getElementById('modalAddSong').classList.add('show');
+  document.getElementById('modalAddSong').classList.add('show', 'active');
 });
 document.getElementById('btnAdminAddSinger')?.addEventListener('click', () => {
-  document.getElementById('modalAddArtist').classList.add('show');
+  document.getElementById('modalAddArtist').classList.add('show', 'active');
 });
 document.getElementById('btnAdminAddAlbum')?.addEventListener('click', () => {
   populateSongFormSelects();
-  document.getElementById('modalAddAlbum').classList.add('show');
+  document.getElementById('modalAddAlbum').classList.add('show', 'active');
 });
 
 // Submit Add Song Form (Supabase Upload & DB)
@@ -1723,4 +1753,13 @@ function formatDuration(sec) {
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
   loadInitialData();
+
+  // Đóng modal khi click ra ngoài backdrop
+  document.querySelectorAll('.sw-modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('show', 'active');
+      }
+    });
+  });
 });

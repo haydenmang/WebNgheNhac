@@ -187,7 +187,7 @@
       <span class="nav-text">Bài hát yêu thích</span>
     </a>
 
-    <a class="nav-item" data-page="admin" id="navAdminItem">
+    <a class="nav-item" data-page="admin" id="navAdminItem" style="display:none">
       <span class="nav-icon"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
       <span class="nav-text">Quản trị Admin</span>
       <span class="nav-admin-badge">ADMIN</span>
@@ -499,7 +499,7 @@
         </div>
 
         <!-- Admin Dashboard Content -->
-        <div id="adminDashboardContent">
+        <div id="adminDashboardContent" style="display:none">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px">
             <div>
               <div class="btn-admin-pill"><span style="font-size:10px">●</span> Admin Dashboard</div>
@@ -793,10 +793,30 @@
         </button>
       </form>
 
-      <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:12px; margin-top:14px; font-size:12px; color:var(--muted2)">
-        <div style="display:flex; justify-content:space-between; align-items:center">
-          <span>Tài khoản mẫu Admin: <strong>admin</strong> (pass: <strong>123456</strong>)</span>
-          <button type="button" class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px" onclick="fillQuickAdmin()">Điền nhanh</button>
+      <!-- Khu vực chọn tài khoản theo phân quyền Báo cáo (Admin Level 1 / User Level 0) -->
+      <div style="background:rgba(4,255,36,0.06); border:1px solid rgba(4,255,36,0.25); border-radius:12px; padding:12px 14px; margin-top:16px;">
+        <div style="margin-bottom:8px;">
+          <span style="font-weight:700; color:var(--green); font-size:12px; display:flex; align-items:center; gap:6px;">
+            🛡️ Tài khoản mẫu phân quyền (Báo cáo Hệ thống):
+          </span>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <button type="button" class="btn-admin-action" onclick="fillQuickAccount('admin', '123456')" style="padding:8px 10px; font-size:12px; justify-content:flex-start; text-align:left; background:rgba(22,27,39,0.9); border:1px solid rgba(4,255,36,0.4); border-radius:8px; cursor:pointer;">
+            <div>
+              <div style="font-weight:700; color:#fff; display:flex; align-items:center; gap:5px;">
+                👑 Quản trị viên <span style="font-size:10px; background:rgba(4,255,36,0.2); color:var(--green); padding:1px 5px; border-radius:4px;">Level 1</span>
+              </div>
+              <div style="font-size:11px; color:var(--muted2); margin-top:2px;">admin / 123456</div>
+            </div>
+          </button>
+          <button type="button" class="btn-admin-action secondary" onclick="fillQuickAccount('mck_fan', '123456')" style="padding:8px 10px; font-size:12px; justify-content:flex-start; text-align:left; background:rgba(22,27,39,0.9); border:1px solid rgba(255,255,255,0.15); border-radius:8px; cursor:pointer;">
+            <div>
+              <div style="font-weight:700; color:#fff; display:flex; align-items:center; gap:5px;">
+                🎵 Thành viên <span style="font-size:10px; background:rgba(255,255,255,0.1); color:#94a3b8; padding:1px 5px; border-radius:4px;">Level 0</span>
+              </div>
+              <div style="font-size:11px; color:var(--muted2); margin-top:2px;">mck_fan / 123456</div>
+            </div>
+          </button>
         </div>
       </div>
     </div>

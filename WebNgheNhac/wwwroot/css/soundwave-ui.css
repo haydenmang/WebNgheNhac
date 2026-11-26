@@ -754,8 +754,11 @@
   padding: 20px;
 }
 
-.sw-modal-overlay.show {
+.sw-modal-overlay.show,
+.sw-modal-overlay.active {
   display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .sw-modal-box {
