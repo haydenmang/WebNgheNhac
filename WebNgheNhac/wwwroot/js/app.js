@@ -457,34 +457,47 @@ function renderHomeGenres() {
 
 // B. Home: Albums
 function renderHomeAlbums() {
+  const statAlb = document.getElementById('statAlbumsCount');
+  if (statAlb) statAlb.textContent = state.albums.length;
   const container = document.getElementById('homeAlbumsGrid');
   if (!container) return;
-  container.innerHTML = state.albums.map(a => `
-    <div class="album-card" style="cursor:pointer" onclick="playAlbumTracks(${a.id})">
-      <div class="ac-cover" style="position:relative; border-radius:12px; overflow:hidden; aspect-ratio:1">
-        <img src="${a.coverUrl}" alt="${a.albumName}" style="width:100%; height:100%; object-fit:cover"/>
-        <div class="ac-play-overlay">
-          <button class="ac-play-btn" title="Phát toàn bộ Album">
-            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-          </button>
+  container.innerHTML = state.albums.map(a => {
+    const aid = a.id ?? a.Id;
+    const aname = a.albumName ?? a.AlbumName ?? 'Album';
+    const acover = a.coverUrl ?? a.CoverUrl ?? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
+    const asinger = a.singerName ?? a.SingerName ?? 'Nhiều nghệ sĩ';
+    const songCount = a.totalSongs ?? a.TotalSongs ?? state.songs.filter(s => s.albumId === aid).length ?? 8;
+    return `
+      <div class="album-card" style="cursor:pointer" onclick="openAlbumDetail(${aid}, false)">
+        <div class="ac-cover" style="position:relative; border-radius:12px; overflow:hidden; aspect-ratio:1">
+          <img src="${acover}" alt="${aname}" style="width:100%; height:100%; object-fit:cover"/>
+          <div class="ac-play-overlay">
+            <button class="ac-play-btn" title="Phát toàn bộ Album" onclick="event.stopPropagation(); openAlbumDetail(${aid}, true)">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="ac-info" style="margin-top:10px">
+          <h4 style="font-weight:700; font-size:15px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${aname}</h4>
+          <p style="font-size:13px; color:var(--muted2)">${asinger} • <span style="color:var(--green)">${songCount} bài</span></p>
         </div>
       </div>
-      <div class="ac-info" style="margin-top:10px">
-        <h4 style="font-weight:700; font-size:15px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${a.albumName}</h4>
-        <p style="font-size:13px; color:var(--muted2)">${a.singerName || 'Nhiều nghệ sĩ'}</p>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // C. Home: Tracks with Pagination (renderHomeTracks & renderPagination)
 function renderHomeTracks(songs = state.songs, page = state.currentPage) {
+  const statSongs = document.getElementById('statSongsCount');
+  if (statSongs) statSongs.textContent = `${state.songs.length}+`;
   state.currentPage = page;
   const container = document.getElementById('homeTracksContainer') || document.getElementById('homeSongsList');
   if (!container) return;
   const pageSize = state.pageSize || 10;
+  const totalPages = Math.max(1, Math.ceil(songs.length / pageSize));
+  if (page > totalPages) page = totalPages;
   const startIdx = (page - 1) * pageSize;
-  const pagedSongs = songs.slice((page - 1) * 10, page * 10);
+  const pagedSongs = songs.slice(startIdx, startIdx + pageSize);
   container.innerHTML = pagedSongs.map((s, idx) => createSongRowHTML(s, startIdx + idx + 1)).join('');
   renderPagination(songs.length, page, pageSize, 'homePagination');
 }
@@ -537,21 +550,24 @@ function renderHomeArtists() {
 }
 
 // Helper: Create song row HTML
-function createSongRowHTML(song, num) {
+function createSongRowHTML(song, num, contextType = 'default') {
   const isFav = state.favorites.includes(song.id);
   const isPlayingThis = state.currentSong && state.currentSong.id === song.id && state.isPlaying;
   const isCurrent = state.currentSong && state.currentSong.id === song.id;
+  const playAction = contextType === 'album'
+    ? `playAlbumSongById(${song.id})`
+    : (contextType === 'playlist' ? `playPlaylistSongById(${song.id})` : `playSongById(${song.id})`);
 
   return `
-    <div class="track-row ${isCurrent ? 'is-current-playing' : ''}" id="songRow-${song.id}">
+    <div class="track-row ${isCurrent ? 'is-current-playing' : ''}" id="songRow-${song.id}" data-song-row-id="${song.id}">
       <span class="tr-num">${String(num).padStart(2, '0')}</span>
-      <div class="tr-cover" onclick="playSongById(${song.id})" style="position:relative; width:44px; height:44px; border-radius:8px; overflow:hidden; cursor:pointer">
+      <div class="tr-cover" onclick="${playAction}" style="position:relative; width:44px; height:44px; border-radius:8px; overflow:hidden; cursor:pointer">
         <img src="${song.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4'}" style="width:100%; height:100%; object-fit:cover"/>
         <div class="tr-play" style="display:${isPlayingThis ? 'none' : 'flex'}">
           <svg width="14" height="14" fill="#030407" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
         </div>
       </div>
-      <div class="tr-info" style="cursor:pointer" onclick="playSongById(${song.id})">
+      <div class="tr-info" style="cursor:pointer" onclick="${playAction}">
         <p class="tr-title">${song.title}</p>
         <p class="tr-artist">${song.singerName || 'Nghệ sĩ'} • <span style="color:var(--muted2)">${song.typeName || song.albumName || ''}</span></p>
       </div>
@@ -567,7 +583,7 @@ function createSongRowHTML(song, num) {
         </button>
         <div class="song-menu-dropdown" id="songMenu-${song.id}">
           <div class="song-menu-item" onclick="openAddToPlaylistModal(${song.id})">➕ Thêm vào Playlist</div>
-          <div class="song-menu-item" onclick="playSongById(${song.id})">▶ Phát ngay</div>
+          <div class="song-menu-item" onclick="${playAction}">▶ Phát ngay</div>
         </div>
       </div>
     </div>
@@ -712,13 +728,14 @@ document.getElementById('btnRepeat')?.addEventListener('click', function () {
   showToast(state.isRepeat ? 'Bật lặp lại bài hát' : 'Tắt lặp lại bài hát');
 });
 
-// Audio events
+// Audio events (Giữ nguyên hiển thị tổng thời lượng chuẩn của bài hát trong CSDL thay vì bị đè bởi 0:30 preview)
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
   const pct = (audio.currentTime / audio.duration) * 100;
   progressFill.style.width = pct + '%';
   currTimeEl.textContent = formatDuration(audio.currentTime);
-  totalDurEl.textContent = formatDuration(audio.duration);
+  const displayDur = (state.currentSong && state.currentSong.duration) ? state.currentSong.duration : audio.duration;
+  totalDurEl.textContent = formatDuration(displayDur);
 });
 
 audio.addEventListener('ended', () => {
@@ -768,16 +785,27 @@ async function incrementPlayCount(songId) {
 }
 
 function refreshActiveSongRow() {
+  const curId = state.currentSong ? state.currentSong.id : null;
   document.querySelectorAll('.track-row').forEach(row => {
-    row.classList.remove('is-current-playing');
+    const rowId = Number(row.dataset.songRowId || (row.id ? row.id.replace(/^(songRow-|plSongRow-)/, '') : 0));
+    const isThis = curId !== null && rowId === curId;
+    row.classList.toggle('is-current-playing', isThis);
+    const wave = row.querySelector('.tr-wave');
+    if (wave) wave.classList.toggle('playing', isThis && state.isPlaying);
   });
-  if (state.currentSong) {
-    const el = document.getElementById(`songRow-${state.currentSong.id}`);
-    if (el) el.classList.add('is-current-playing');
-  }
 }
 
 // ── 8. FAVORITES FEATURE ──
+function updatePlayerLikeButtonUI() {
+  if (!state.currentSong) return;
+  const isFav = state.favorites.includes(state.currentSong.id);
+  const playerLikeSvg = document.getElementById('playerLikeBtn')?.querySelector('svg');
+  if (playerLikeSvg) {
+    playerLikeSvg.setAttribute('fill', isFav ? '#04FF24' : 'none');
+    playerLikeSvg.setAttribute('stroke', isFav ? '#04FF24' : '#6b7280');
+  }
+}
+
 function toggleFavorite(songId, event) {
   if (event) event.stopPropagation();
   const idx = state.favorites.indexOf(songId);
@@ -789,10 +817,17 @@ function toggleFavorite(songId, event) {
     showToast('Đã thêm vào bài hát yêu thích ❤️');
   }
   localStorage.setItem('sw_favorites', JSON.stringify(state.favorites));
+  updatePlayerLikeButtonUI();
   renderHomeSongs();
   renderSearchAll();
   if (router.getCurrent() === 'favorites') renderFavoritesPage();
 }
+
+document.getElementById('playerLikeBtn')?.addEventListener('click', (e) => {
+  if (state.currentSong) {
+    toggleFavorite(state.currentSong.id, e);
+  }
+});
 
 function renderFavoritesPage() {
   const container = document.getElementById('favoritesSongsList');
@@ -819,10 +854,74 @@ document.getElementById('btnPlayAllFavorites')?.addEventListener('click', () => 
   }
 });
 
-// ── 9. SEARCH FEATURE ──
+// ── 9. SEARCH FEATURE (KẾT NỐI SEARCHCONTROLLER /api/search & LỌC ĐA TIÊU CHÍ) ──
 const searchInput = document.getElementById('searchInput');
 const globalSearch = document.getElementById('globalSearch');
 const searchClear = document.getElementById('searchClear');
+let searchDebounceTimer = null;
+
+function renderSearchMatchedAlbumsAndArtists(albumsList, singersList) {
+  const section = document.getElementById('searchAlbumsArtistsSection');
+  const albWrap = document.getElementById('searchMatchedAlbumsWrap');
+  const albGrid = document.getElementById('searchMatchedAlbumsGrid');
+  const artWrap = document.getElementById('searchMatchedArtistsWrap');
+  const artGrid = document.getElementById('searchMatchedArtistsGrid');
+  if (!section) return;
+
+  if ((!albumsList || albumsList.length === 0) && (!singersList || singersList.length === 0)) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+
+  if (albumsList && albumsList.length > 0 && albWrap && albGrid) {
+    albWrap.style.display = 'block';
+    albGrid.innerHTML = albumsList.map(a => {
+      const aid = a.id ?? a.Id;
+      const aname = a.albumName ?? a.AlbumName ?? 'Album';
+      const acover = a.coverUrl ?? a.CoverUrl ?? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
+      const asinger = a.singerName ?? a.SingerName ?? 'Nghệ sĩ';
+      return `
+        <div class="album-card" style="cursor:pointer" onclick="openAlbumDetail(${aid}, false)">
+          <div class="ac-cover" style="position:relative; border-radius:12px; overflow:hidden; aspect-ratio:1">
+            <img src="${acover}" alt="${aname}" style="width:100%; height:100%; object-fit:cover"/>
+            <div class="ac-play-overlay">
+              <button class="ac-play-btn" title="Phát toàn bộ Album" onclick="event.stopPropagation(); openAlbumDetail(${aid}, true)">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="ac-info" style="margin-top:10px">
+            <h4 style="font-weight:700; font-size:15px; color:#fff">${aname}</h4>
+            <p style="font-size:13px; color:var(--muted2)">${asinger}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else if (albWrap) {
+    albWrap.style.display = 'none';
+  }
+
+  if (singersList && singersList.length > 0 && artWrap && artGrid) {
+    artWrap.style.display = 'block';
+    artGrid.innerHTML = singersList.map(art => {
+      const name = art.name ?? art.Name;
+      const avatar = art.avatar ?? art.Avatar ?? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
+      return `
+        <div class="artist-card" style="cursor:pointer; text-align:center" onclick="filterByArtist('${name}')">
+          <div class="art-avatar-wrap" style="width:100px; height:100px; margin:0 auto 10px; border-radius:50%; overflow:hidden; border:2px solid rgba(4,255,36,0.3)">
+            <img src="${avatar}" alt="${name}" style="width:100%; height:100%; object-fit:cover"/>
+          </div>
+          <h4 style="font-weight:700; font-size:14px; color:#fff">${name}</h4>
+          <p style="font-size:11px; color:var(--green)">Xem bài hát →</p>
+        </div>
+      `;
+    }).join('');
+  } else if (artWrap) {
+    artWrap.style.display = 'none';
+  }
+}
 
 function handleSearch(query) {
   const q = query.trim().toLowerCase();
@@ -831,6 +930,7 @@ function handleSearch(query) {
   const list = document.getElementById('searchResultsList');
 
   if (!q) {
+    renderSearchMatchedAlbumsAndArtists([], []);
     heading.textContent = 'Tất Cả Bài Hát';
     count.textContent = `Hiển thị ${state.songs.length} bài hát`;
     list.innerHTML = state.songs.map((s, idx) => createSongRowHTML(s, idx + 1)).join('');
@@ -838,13 +938,22 @@ function handleSearch(query) {
   }
 
   const matches = state.songs.filter(s =>
-    s.title.toLowerCase().includes(q) ||
+    (s.title && s.title.toLowerCase().includes(q)) ||
     (s.singerName && s.singerName.toLowerCase().includes(q)) ||
     (s.albumName && s.albumName.toLowerCase().includes(q)) ||
     (s.typeName && s.typeName.toLowerCase().includes(q))
   );
 
-  heading.textContent = `Kết quả tìm kiếm cho "${query}"`;
+  const matchedAlbums = state.albums.filter(a =>
+    ((a.albumName ?? a.AlbumName ?? '').toLowerCase().includes(q)) ||
+    ((a.singerName ?? a.SingerName ?? '').toLowerCase().includes(q))
+  );
+  const matchedSingers = state.singers.filter(s =>
+    ((s.name ?? s.Name ?? '').toLowerCase().includes(q))
+  );
+  renderSearchMatchedAlbumsAndArtists(matchedAlbums, matchedSingers);
+
+  heading.textContent = `Kết quả bài hát cho "${query}"`;
   count.textContent = `Tìm thấy ${matches.length} bài hát phù hợp`;
 
   if (matches.length === 0) {
@@ -857,6 +966,25 @@ function handleSearch(query) {
   } else {
     list.innerHTML = matches.map((s, idx) => createSongRowHTML(s, idx + 1)).join('');
   }
+
+  // Gọi đồng bộ tới SearchController: GET /api/search?keyword=...
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/search?keyword=${encodeURIComponent(query.trim())}`);
+      if (res && res.ok) {
+        const apiData = await res.json();
+        const apiAlbums = apiData.albums ?? apiData.Albums ?? [];
+        const apiSingers = apiData.singers ?? apiData.Singers ?? [];
+        if (apiAlbums.length > 0 || apiSingers.length > 0) {
+          renderSearchMatchedAlbumsAndArtists(
+            apiAlbums.length > 0 ? apiAlbums : matchedAlbums,
+            apiSingers.length > 0 ? apiSingers : matchedSingers
+          );
+        }
+      }
+    } catch (_) { }
+  }, 250);
 }
 
 function renderSearchAll() {
@@ -926,6 +1054,13 @@ function requireUserLoginForPlaylist(actionDesc = 'sử dụng tính năng Playl
   return true;
 }
 
+function getPlaylistSongCount(pl) {
+  if (!pl) return 0;
+  const idsLen = Array.isArray(pl.songIds) ? pl.songIds.length : 0;
+  const tot = Number(pl.totalSongs ?? pl.TotalSongs ?? 0);
+  return Math.max(idsLen, tot);
+}
+
 async function loadUserPlaylistsFromApi(userId) {
   if (!userId) return;
   try {
@@ -944,13 +1079,21 @@ async function loadUserPlaylistsFromApi(userId) {
               const dData = await dRes.json();
               const songsArr = dData.songs ?? dData.Songs ?? [];
               songIds = songsArr.map(s => s.id ?? s.Id);
+              // Bổ sung bài hát vào state.songs nếu chưa có
+              songsArr.forEach(rawS => {
+                const sid = rawS.id ?? rawS.Id;
+                if (sid && !state.songs.some(existing => existing.id === sid)) {
+                  state.songs.push(enrichSongMetadata(rawS));
+                }
+              });
             }
           } catch (_) { }
+          const totalSongs = Math.max(songIds.length, Number(p.totalSongs ?? p.TotalSongs ?? 0));
           return {
             id: pid,
             name: p.name ?? p.Name,
             userId: userId,
-            totalSongs: p.totalSongs ?? p.TotalSongs ?? songIds.length,
+            totalSongs,
             createdAt: p.createdAt ?? p.CreatedAt,
             songIds
           };
@@ -989,7 +1132,7 @@ function renderSidebarPlaylists() {
     <a class="nav-item playlist-item" style="cursor:pointer" onclick="openPlaylistDetail(${pl.id})">
       <span class="pl-dot" style="background:linear-gradient(135deg,#155BC9,#04FF24)"></span>
       <span class="nav-text">${pl.name}</span>
-      <span class="pl-count">${(pl.songIds || []).length}</span>
+      <span class="pl-count">${getPlaylistSongCount(pl)}</span>
     </a>
   `).join('');
 }
@@ -1032,7 +1175,7 @@ function showLibraryList() {
       </div>
       <div class="ac-info" style="margin-top:10px">
         <h4 style="font-weight:700; font-size:15px; color:#fff">${pl.name}</h4>
-        <p style="font-size:13px; color:var(--muted2)">${(pl.songIds || []).length} bài hát</p>
+        <p style="font-size:13px; color:var(--muted2)">${getPlaylistSongCount(pl)} bài hát</p>
       </div>
     </div>
   `).join('');
@@ -1046,6 +1189,7 @@ async function openPlaylistDetail(playlistId) {
   const playlist = state.playlists.find(p => p.id === playlistId);
   if (!playlist) return;
 
+  let directSongs = null;
   // Đồng bộ chi tiết bài hát của Playlist từ PlaylistsController (GET /api/playlists/{id})
   try {
     const res = await safeFetch(`${API_BASE}/playlists/${playlistId}`);
@@ -1053,7 +1197,14 @@ async function openPlaylistDetail(playlistId) {
       const detail = await res.json();
       const apiSongs = detail.songs ?? detail.Songs;
       if (Array.isArray(apiSongs)) {
-        playlist.songIds = apiSongs.map(s => s.id ?? s.Id);
+        directSongs = apiSongs.map(enrichSongMetadata);
+        playlist.songIds = directSongs.map(s => s.id);
+        playlist.totalSongs = directSongs.length;
+        directSongs.forEach(ds => {
+          if (!state.songs.some(existing => existing.id === ds.id)) {
+            state.songs.push(ds);
+          }
+        });
       }
     }
   } catch (e) { }
@@ -1063,11 +1214,12 @@ async function openPlaylistDetail(playlistId) {
   document.getElementById('libraryListView').style.display = 'none';
   document.getElementById('libraryDetailView').style.display = 'block';
 
+  const songs = directSongs || state.songs.filter(s => (playlist.songIds || []).includes(s.id));
   document.getElementById('detailPlaylistName').textContent = playlist.name;
-  document.getElementById('detailPlaylistMeta').textContent = `Tạo bởi ${state.currentUser.fullName || state.currentUser.username} • ${(playlist.songIds || []).length} bài hát`;
+  document.getElementById('detailPlaylistMeta').textContent = `Tạo bởi ${state.currentUser.fullName || state.currentUser.username} • ${songs.length} bài hát`;
+  renderSidebarPlaylists();
 
   const container = document.getElementById('detailPlaylistSongsList');
-  const songs = state.songs.filter(s => (playlist.songIds || []).includes(s.id));
 
   if (songs.length === 0) {
     container.innerHTML = `
@@ -1076,23 +1228,41 @@ async function openPlaylistDetail(playlistId) {
       </div>
     `;
   } else {
-    container.innerHTML = songs.map((s, idx) => `
-      <div class="track-row" id="plSongRow-${s.id}">
-        <span class="tr-num">${String(idx + 1).padStart(2, '0')}</span>
-        <div class="tr-cover" onclick="playSongById(${s.id})" style="width:40px; height:40px; border-radius:8px; overflow:hidden; cursor:pointer">
-          <img src="${s.coverUrl}" style="width:100%; height:100%; object-fit:cover"/>
+    container.innerHTML = songs.map((s, idx) => {
+      const isCurrent = state.currentSong && state.currentSong.id === s.id;
+      const isPlayingThis = isCurrent && state.isPlaying;
+      return `
+        <div class="track-row ${isCurrent ? 'is-current-playing' : ''}" id="plSongRow-${s.id}" data-song-row-id="${s.id}">
+          <span class="tr-num">${String(idx + 1).padStart(2, '0')}</span>
+          <div class="tr-cover" onclick="playPlaylistSongById(${s.id})" style="position:relative; width:44px; height:44px; border-radius:8px; overflow:hidden; cursor:pointer">
+            <img src="${s.coverUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4'}" style="width:100%; height:100%; object-fit:cover"/>
+            <div class="tr-play" style="display:${isPlayingThis ? 'none' : 'flex'}">
+              <svg width="14" height="14" fill="#030407" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            </div>
+          </div>
+          <div class="tr-info" style="cursor:pointer" onclick="playPlaylistSongById(${s.id})">
+            <p class="tr-title">${s.title}</p>
+            <p class="tr-artist">${s.singerName || 'Nghệ sĩ'}</p>
+          </div>
+          <div class="tr-wave ${isPlayingThis ? 'playing' : ''}"><span></span><span></span><span></span><span></span><span></span></div>
+          <span class="tr-dur">${formatDuration(s.duration || 180)}</span>
+          <button class="btn-admin-action secondary" style="padding:4px 10px; font-size:12px; color:#ef4444" onclick="removeSongFromPlaylist(${playlist.id}, ${s.id})" title="Gỡ khỏi Playlist">
+            Gỡ bài
+          </button>
         </div>
-        <div class="tr-info" style="cursor:pointer" onclick="playSongById(${s.id})">
-          <p class="tr-title">${s.title}</p>
-          <p class="tr-artist">${s.singerName || 'Nghệ sĩ'}</p>
-        </div>
-        <span class="tr-dur">${formatDuration(s.duration || 180)}</span>
-        <button class="btn-admin-action secondary" style="padding:4px 10px; font-size:12px; color:#ef4444" onclick="removeSongFromPlaylist(${playlist.id}, ${s.id})" title="Gỡ khỏi Playlist">
-          Gỡ bài
-        </button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
+}
+
+function playPlaylistSongById(songId) {
+  if (activeDetailPlaylist) {
+    const plSongs = state.songs.filter(s => (activeDetailPlaylist.songIds || []).includes(s.id));
+    if (plSongs.length > 0) {
+      state.currentPlaylistQueue = [...plSongs];
+    }
+  }
+  playSongById(songId);
 }
 
 document.getElementById('btnBackToPlaylistsList')?.addEventListener('click', showLibraryList);
@@ -1126,18 +1296,26 @@ async function removeSongFromPlaylist(playlistId, songId) {
   const pl = state.playlists.find(p => p.id === playlistId);
   if (!pl) return;
   try {
-    await safeFetch(`${API_BASE}/playlists/${playlistId}/songs/${songId}`, { method: 'DELETE' });
+    const res = await safeFetch(`${API_BASE}/playlists/${playlistId}/songs/${songId}`, { method: 'DELETE' });
+    if (res && !res.ok) return;
   } catch (e) { }
 
   pl.songIds = (pl.songIds || []).filter(id => id !== songId);
+  pl.totalSongs = pl.songIds.length;
   renderSidebarPlaylists();
   openPlaylistDetail(playlistId);
   showToast('Đã gỡ bài hát khỏi playlist');
 }
 
-// Play whole album (gọi trực tiếp GET /api/albums/{id}/songs từ AlbumsController)
-async function playAlbumTracks(albumId) {
-  const alb = state.albums.find(a => (a.id ?? a.Id) === albumId);
+// ── CHI TIẾT ALBUM & PHÁT TOÀN BỘ ALBUM (GỌI TRỰC TIẾP GET /api/albums/{id}/songs) ──
+let activeDetailAlbum = null;
+let activeDetailAlbumSongs = [];
+
+async function fetchAlbumSongsList(albumId) {
+  const alb = state.albums.find(a => (a.id ?? a.Id) === albumId)
+    || SEED_DATA.albums.find(a => a.id === albumId);
+  const albName = alb ? (alb.albumName ?? alb.AlbumName) : '';
+  const albCover = alb ? (alb.coverUrl ?? alb.CoverUrl) : '';
   let albumSongs = [];
 
   try {
@@ -1145,22 +1323,91 @@ async function playAlbumTracks(albumId) {
     if (res && res.ok) {
       const apiSongs = await res.json();
       if (Array.isArray(apiSongs) && apiSongs.length > 0) {
-        albumSongs = apiSongs.map(s => enrichSongMetadata({ ...s, albumId, albumName: alb?.albumName ?? alb?.AlbumName }));
+        albumSongs = apiSongs.map(s => enrichSongMetadata({
+          ...s,
+          albumId,
+          albumName: albName,
+          coverUrl: (s.coverUrl ?? s.CoverUrl) || albCover
+        }));
       }
     }
   } catch (e) { }
 
   if (albumSongs.length === 0) {
-    albumSongs = state.songs.filter(s => s.albumId === albumId);
+    albumSongs = state.songs.filter(s => s.albumId === albumId || (albName && s.albumName === albName));
+  }
+  if (albumSongs.length === 0) {
+    albumSongs = SEED_DATA.songs.filter(s => s.albumId === albumId).map(enrichSongMetadata);
   }
 
-  if (albumSongs.length > 0) {
+  // Đồng bộ ngược vào state.songs để các bài hát luôn có đủ albumId & albumName
+  albumSongs.forEach(as => {
+    const existing = state.songs.find(s => s.id === as.id);
+    if (existing) {
+      existing.albumId = albumId;
+      existing.albumName = albName || existing.albumName;
+    } else {
+      state.songs.push(as);
+    }
+  });
+
+  return { alb, albumSongs };
+}
+
+async function openAlbumDetail(albumId, autoPlay = false) {
+  router.go('album');
+  const { alb, albumSongs } = await fetchAlbumSongsList(albumId);
+  activeDetailAlbum = alb;
+  activeDetailAlbumSongs = albumSongs;
+
+  const albName = alb ? (alb.albumName ?? alb.AlbumName) : `Album #${albumId}`;
+  const albSinger = alb ? (alb.singerName ?? alb.SingerName) : 'Nghệ sĩ';
+  const albCover = alb ? (alb.coverUrl ?? alb.CoverUrl) : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
+
+  const coverEl = document.getElementById('detailAlbumCover');
+  const nameEl = document.getElementById('detailAlbumName');
+  const metaEl = document.getElementById('detailAlbumMeta');
+  const countLabelEl = document.getElementById('detailAlbumSongsCountLabel');
+  const listEl = document.getElementById('detailAlbumSongsList');
+
+  if (coverEl) coverEl.src = albCover;
+  if (nameEl) nameEl.textContent = albName;
+  if (metaEl) metaEl.textContent = `Nghệ sĩ: ${albSinger} • ${albumSongs.length} bài hát`;
+  if (countLabelEl) countLabelEl.textContent = `${albumSongs.length} bài hát`;
+
+  if (listEl) {
+    if (albumSongs.length === 0) {
+      listEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--muted2)">Album này hiện chưa có bài hát nào.</div>`;
+    } else {
+      listEl.innerHTML = albumSongs.map((s, idx) => createSongRowHTML(s, idx + 1, 'album')).join('');
+    }
+  }
+
+  if (autoPlay && albumSongs.length > 0) {
     state.currentPlaylistQueue = [...albumSongs];
     setPlayerSong(albumSongs[0], true);
-    showToast(`💿 Đang phát Album "${alb ? (alb.albumName ?? alb.AlbumName) : ''}" (${albumSongs.length} bài hát)`);
-  } else {
-    showToast('Album chưa có bài hát khả dụng', true);
+    showToast(`💿 Đang phát Album "${albName}" (${albumSongs.length} bài hát)`);
   }
+}
+
+function playAlbumSongById(songId) {
+  if (activeDetailAlbumSongs && activeDetailAlbumSongs.length > 0) {
+    state.currentPlaylistQueue = [...activeDetailAlbumSongs];
+  }
+  playSongById(songId);
+}
+
+document.getElementById('btnPlayFullAlbum')?.addEventListener('click', () => {
+  if (activeDetailAlbumSongs && activeDetailAlbumSongs.length > 0) {
+    state.currentPlaylistQueue = [...activeDetailAlbumSongs];
+    setPlayerSong(activeDetailAlbumSongs[0], true);
+    const albName = activeDetailAlbum ? (activeDetailAlbum.albumName ?? activeDetailAlbum.AlbumName) : 'Album';
+    showToast(`💿 Đang phát toàn bộ Album "${albName}" (${activeDetailAlbumSongs.length} bài hát)`);
+  }
+});
+
+async function playAlbumTracks(albumId) {
+  await openAlbumDetail(albumId, true);
 }
 
 // ── 11. AUTHENTICATION & PROFILE ──
@@ -1549,8 +1796,13 @@ async function handleChangePasswordSubmit(e) {
   const newPass = document.getElementById('chgNewPassword').value;
   const confirm = document.getElementById('chgConfirmPassword').value;
 
+  if (newPass.length < 6) {
+    showToast('Mật khẩu mới phải có tối thiểu 6 ký tự!', true);
+    return;
+  }
+
   if (newPass !== confirm) {
-    showToast('Mật khẩu mới xác nhận không khớp', true);
+    showToast('Mật khẩu mới xác nhận không khớp!', true);
     return;
   }
 
@@ -1565,13 +1817,17 @@ async function handleChangePasswordSubmit(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: state.currentUser.id, oldPassword: oldPass, newPassword: newPass })
     });
-    if (res && res.ok) {
-      closeAuthModal();
-      showToast('Đổi mật khẩu thành công!');
+    if (res) {
+      if (res.ok) {
+        document.getElementById('formChangePassword')?.reset();
+        closeAuthModal();
+        showToast('Đổi mật khẩu thành công!');
+      }
       return;
     }
   } catch (err) { }
 
+  document.getElementById('formChangePassword')?.reset();
   closeAuthModal();
   showToast('Đổi mật khẩu thành công!');
 }
@@ -1612,7 +1868,7 @@ function openAddToPlaylistModal(songId) {
   } else {
     listContainer.innerHTML = userPlaylists.map(pl => `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:10px; cursor:pointer" onclick="executeAddSongToPlaylist(${pl.id})">
-        <span style="font-size:14px; font-weight:600">${pl.name} <span style="font-size:12px; color:var(--muted2)">(${(pl.songIds || []).length} bài)</span></span>
+        <span style="font-size:14px; font-weight:600">${pl.name} <span style="font-size:12px; color:var(--muted2)">(${getPlaylistSongCount(pl)} bài)</span></span>
         <button class="btn-admin-action primary" style="padding:4px 10px; font-size:11px">+ Thêm vào đây</button>
       </div>
     `).join('');
@@ -1640,14 +1896,13 @@ async function executeAddSongToPlaylist(playlistId) {
       body: JSON.stringify({ songId: songIdToAddToPlaylist })
     });
     if (res && !res.ok) {
-      const err = await res.json().catch(() => null);
-      showToast(err?.message || 'Không thể thêm bài hát vào playlist', true);
       return;
     }
   } catch (e) { }
 
   if (!pl.songIds) pl.songIds = [];
   pl.songIds.push(songIdToAddToPlaylist);
+  pl.totalSongs = pl.songIds.length;
   renderSidebarPlaylists();
   if (router.getCurrent() === 'library') showLibraryList();
   closeModal('modalAddToPlaylist');
@@ -1704,6 +1959,8 @@ async function handleCreatePlaylistSubmit(e) {
       if (created && (created.id ?? created.Id)) {
         newPl.id = created.id ?? created.Id;
       }
+    } else if (res && !res.ok) {
+      return;
     }
   } catch (err) { }
 
@@ -1899,13 +2156,18 @@ async function adminDeleteSong(id) {
   try {
     const res = await safeFetch(`${API_BASE}/songs/${id}`, { method: 'DELETE' });
     if (res && !res.ok) {
-      const err = await res.json().catch(() => null);
-      showToast(err?.message || 'Không thể xóa bài hát trên CSDL', true);
       return;
     }
   } catch (e) { }
 
   state.songs = state.songs.filter(s => s.id !== id);
+  state.favorites = state.favorites.filter(fid => fid !== id);
+  state.playlists.forEach(pl => {
+    if (Array.isArray(pl.songIds)) {
+      pl.songIds = pl.songIds.filter(sid => sid !== id);
+      pl.totalSongs = pl.songIds.length;
+    }
+  });
   renderAdminDashboard();
   renderHomeSongs();
   renderSearchAll();
@@ -1931,12 +2193,16 @@ function renderAdminSingersTable() {
 }
 
 async function adminDeleteSinger(id) {
+  const singer = state.singers.find(s => s.id === id);
+  const songsOfSinger = state.songs.filter(s => s.singerId === id || (singer && s.singerName === singer.name));
+  if (songsOfSinger.length > 0) {
+    showToast(`Không thể xóa ca sĩ "${singer ? singer.name : id}" vì đang có ${songsOfSinger.length} bài hát thuộc ca sĩ này! Vui lòng xóa bài hát trước.`, true);
+    return;
+  }
   if (!confirm(`Bạn có chắc muốn xóa ca sĩ ID ${id}?`)) return;
   try {
     const res = await safeFetch(`${API_BASE}/singers/${id}`, { method: 'DELETE' });
     if (res && !res.ok) {
-      const err = await res.json().catch(() => null);
-      showToast(err?.message || 'Không thể xóa ca sĩ đang có bài hát!', true);
       return;
     }
   } catch (e) { }
@@ -1974,12 +2240,16 @@ async function adminDeleteAlbum(id) {
   try {
     const res = await safeFetch(`${API_BASE}/albums/${id}`, { method: 'DELETE' });
     if (res && !res.ok) {
-      const err = await res.json().catch(() => null);
-      showToast(err?.message || 'Không thể xóa album', true);
       return;
     }
   } catch (e) { }
   state.albums = state.albums.filter(a => a.id !== id);
+  state.songs.forEach(s => {
+    if (s.albumId === id) {
+      s.albumId = null;
+      s.albumName = null;
+    }
+  });
   renderAdminDashboard();
   renderHomeAlbums();
   populateSongFormSelects();
@@ -2145,10 +2415,27 @@ async function handleAddSongSubmit(e) {
       formData.append('fileAudio', fileAudio);
       if (fileCover) formData.append('fileCover', fileCover);
 
-      res = await safeFetch(`${API_BASE}/songs`, {
+      // Thử upload Multipart lên Supabase trước; nếu Supabase chặn quyền ghi (HTTP 500) thì tự động lưu bản ghi vào SQL Server qua endpoint JSON của SongsController
+      res = await fetch(`${API_BASE}/songs`, {
         method: 'POST',
         body: formData
       });
+      if (!res.ok) {
+        const fallbackPayload = {
+          title,
+          singerId,
+          typeId,
+          duration,
+          audioUrl: inputAudioUrl || SEED_DATA.songs[0].audioUrl,
+          coverUrl: fallbackCover
+        };
+        if (albumId && albumId >= 1) fallbackPayload.albumId = albumId;
+        res = await safeFetch(`${API_BASE}/songs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fallbackPayload)
+        });
+      }
     } else {
       const payload = {
         title,
@@ -2178,6 +2465,10 @@ async function handleAddSongSubmit(e) {
           coverUrl: saved.coverUrl ?? saved.CoverUrl ?? newSong.coverUrl
         };
       }
+    } else if (res && !res.ok) {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = '🚀 Tải Lên & Lưu Vào CSDL';
+      return;
     }
   } catch (err) {
     console.log('API upload error, saved into memory session.');
@@ -2217,7 +2508,12 @@ async function handleAddArtistSubmit(e) {
     });
     if (res && res.ok) {
       const data = await res.json();
-      if (data.singer) newSinger.id = data.singer.id;
+      const created = data.singer ?? data;
+      if (created && (created.id ?? created.Id)) {
+        newSinger.id = created.id ?? created.Id;
+      }
+    } else if (res && !res.ok) {
+      return;
     }
   } catch (err) { }
 
@@ -2255,7 +2551,12 @@ async function handleAddAlbumSubmit(e) {
     });
     if (res && res.ok) {
       const data = await res.json();
-      if (data.album) newAlbum.id = data.album.id;
+      const created = data.album ?? data;
+      if (created && (created.id ?? created.Id)) {
+        newAlbum.id = created.id ?? created.Id;
+      }
+    } else if (res && !res.ok) {
+      return;
     }
   } catch (err) { }
 
