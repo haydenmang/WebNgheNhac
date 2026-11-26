@@ -315,6 +315,40 @@ const router = (function () {
   return { go, getCurrent: () => current };
 })();
 
+// Helper: Bổ sung đầy đủ albumId, albumName, singerId, typeId cho bài hát trả về từ GET /api/songs
+function enrichSongMetadata(rawSong) {
+  const id = rawSong.id ?? rawSong.Id;
+  const title = rawSong.title ?? rawSong.Title ?? '';
+  const seedMatch = SEED_DATA.songs.find(s => s.id === id || s.title.toLowerCase() === title.toLowerCase());
+  const coverUrl = rawSong.coverUrl ?? rawSong.CoverUrl ?? seedMatch?.coverUrl ?? '';
+  const singerName = rawSong.singerName ?? rawSong.SingerName ?? seedMatch?.singerName ?? 'Chưa rõ';
+  const typeName = rawSong.typeName ?? rawSong.TypeName ?? seedMatch?.typeName ?? 'Hip-hop / Rap';
+
+  // Tìm album khớp theo albumId, hoặc theo coverUrl / singerName, hoặc từ SEED_DATA
+  let albumId = rawSong.albumId ?? rawSong.AlbumId ?? seedMatch?.albumId ?? null;
+  let albumObj = albumId ? state.albums.find(a => (a.id ?? a.Id) === albumId) : null;
+  if (!albumObj && coverUrl) {
+    albumObj = state.albums.find(a => (a.coverUrl ?? a.CoverUrl) === coverUrl);
+    if (albumObj) albumId = albumObj.id ?? albumObj.Id;
+  }
+  const albumName = rawSong.albumName ?? rawSong.AlbumName ?? albumObj?.albumName ?? albumObj?.AlbumName ?? seedMatch?.albumName ?? null;
+
+  return {
+    ...seedMatch,
+    ...rawSong,
+    id,
+    title,
+    audioUrl: rawSong.audioUrl ?? rawSong.AudioUrl ?? seedMatch?.audioUrl ?? '',
+    coverUrl,
+    duration: rawSong.duration ?? rawSong.Duration ?? seedMatch?.duration ?? 180,
+    plays: rawSong.plays ?? rawSong.Plays ?? seedMatch?.plays ?? 0,
+    singerName,
+    typeName,
+    albumId,
+    albumName
+  };
+}
+
 // ── 5. DATA HYDRATION & API INTEGRATION ──
 async function loadInitialData() {
   // 1. Show skeleton placeholders before fetching
@@ -324,24 +358,7 @@ async function loadInitialData() {
   showSkeleton('homeArtistsGrid', 'card', 3);
 
   try {
-    // 1. Fetch Songs from SongsController (/api/songs?page=1&pageSize=50)
-    const resSongs = await safeFetch(`${API_BASE}/songs?page=1&pageSize=50`);
-    if (resSongs && resSongs.ok) {
-      state.apiConnected = true;
-      const data = await resSongs.json();
-      if (Array.isArray(data) && data.length > 0) {
-        state.songs = data;
-      } else if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
-        state.songs = data.data;
-      }
-    }
-  } catch (e) {
-    state.apiConnected = false;
-    console.log('Backend API /songs not reachable yet, using seeded Hip-Hop songs.');
-  }
-
-  try {
-    // 2. Fetch Singers from SingersController (/api/singers)
+    // 1. Fetch Singers from SingersController (/api/singers)
     const resSingers = await safeFetch(`${API_BASE}/singers`);
     if (resSingers && resSingers.ok) {
       state.apiConnected = true;
@@ -351,7 +368,7 @@ async function loadInitialData() {
   } catch (e) { }
 
   try {
-    // 3. Fetch Albums from AlbumsController (/api/albums)
+    // 2. Fetch Albums from AlbumsController (/api/albums)
     const resAlbums = await safeFetch(`${API_BASE}/albums`);
     if (resAlbums && resAlbums.ok) {
       state.apiConnected = true;
@@ -361,7 +378,7 @@ async function loadInitialData() {
   } catch (e) { }
 
   try {
-    // 4. Fetch Types from TypesController (/api/types)
+    // 3. Fetch Types from TypesController (/api/types)
     const resTypes = await safeFetch(`${API_BASE}/types`);
     if (resTypes && resTypes.ok) {
       state.apiConnected = true;
@@ -369,6 +386,27 @@ async function loadInitialData() {
       if (Array.isArray(data) && data.length > 0) state.types = data;
     }
   } catch (e) { }
+
+  try {
+    // 4. Fetch Songs from SongsController (/api/songs?page=1&pageSize=50)
+    const resSongs = await safeFetch(`${API_BASE}/songs?page=1&pageSize=50`);
+    if (resSongs && resSongs.ok) {
+      state.apiConnected = true;
+      const data = await resSongs.json();
+      let rawSongs = [];
+      if (Array.isArray(data) && data.length > 0) {
+        rawSongs = data;
+      } else if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        rawSongs = data.data;
+      }
+      if (rawSongs.length > 0) {
+        state.songs = rawSongs.map(enrichSongMetadata);
+      }
+    }
+  } catch (e) {
+    state.apiConnected = false;
+    console.log('Backend API /songs not reachable yet, using seeded Hip-Hop songs.');
+  }
 
   // 5. Nếu đã đăng nhập sẵn từ phiên trước, nạp dữ liệu theo quyền từ Controller
   if (state.currentUser) {
@@ -1097,14 +1135,29 @@ async function removeSongFromPlaylist(playlistId, songId) {
   showToast('Đã gỡ bài hát khỏi playlist');
 }
 
-// Play whole album
-function playAlbumTracks(albumId) {
-  const albumSongs = state.songs.filter(s => s.albumId === albumId);
+// Play whole album (gọi trực tiếp GET /api/albums/{id}/songs từ AlbumsController)
+async function playAlbumTracks(albumId) {
+  const alb = state.albums.find(a => (a.id ?? a.Id) === albumId);
+  let albumSongs = [];
+
+  try {
+    const res = await safeFetch(`${API_BASE}/albums/${albumId}/songs`);
+    if (res && res.ok) {
+      const apiSongs = await res.json();
+      if (Array.isArray(apiSongs) && apiSongs.length > 0) {
+        albumSongs = apiSongs.map(s => enrichSongMetadata({ ...s, albumId, albumName: alb?.albumName ?? alb?.AlbumName }));
+      }
+    }
+  } catch (e) { }
+
+  if (albumSongs.length === 0) {
+    albumSongs = state.songs.filter(s => s.albumId === albumId);
+  }
+
   if (albumSongs.length > 0) {
     state.currentPlaylistQueue = [...albumSongs];
     setPlayerSong(albumSongs[0], true);
-    const alb = state.albums.find(a => a.id === albumId);
-    showToast(`Đang phát Album: ${alb ? alb.albumName : ''}`);
+    showToast(`💿 Đang phát Album "${alb ? (alb.albumName ?? alb.AlbumName) : ''}" (${albumSongs.length} bài hát)`);
   } else {
     showToast('Album chưa có bài hát khả dụng', true);
   }
@@ -1277,7 +1330,11 @@ async function loadAndRenderUserProfile() {
           plListEl.innerHTML = playlistsArr.map(p => {
             const pid = p.id ?? p.Id;
             const pname = p.name ?? p.Name;
-            const count = p.totalSongs ?? p.TotalSongs ?? (p.songIds ? p.songIds.length : 0);
+            // Lấy số lượng bài hát chuẩn từ state.playlists (đã đồng bộ qua PlaylistsController) vì AuthController.GetProfile không Include(PlaylistSongs) nên trả về TotalSongs = 0
+            const syncedPl = state.playlists.find(sp => sp.id === pid);
+            const syncedCount = syncedPl ? (Array.isArray(syncedPl.songIds) && syncedPl.songIds.length > 0 ? syncedPl.songIds.length : (syncedPl.totalSongs || 0)) : 0;
+            const apiCount = p.totalSongs ?? p.TotalSongs ?? (Array.isArray(p.songIds) ? p.songIds.length : 0);
+            const count = Math.max(syncedCount, apiCount);
             return `
               <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(255,255,255,0.04); border-radius:8px; cursor:pointer" onclick="closeAuthModal(); openPlaylistDetail(${pid})">
                 <span style="font-size:13px; font-weight:600; color:#fff">💿 ${pname}</span>
@@ -1293,7 +1350,13 @@ async function loadAndRenderUserProfile() {
   // Hiển thị tức thì từ state hiện tại
   applyProfileView(user, getCurrentUserPlaylists());
 
-  // Đồng bộ trực tiếp từ AuthController: GET /api/auth/profile/{id} (UC11)
+  // Đảm bảo đã đồng bộ danh sách Playlist & số bài hát thực tế từ PlaylistsController
+  if (user.level !== 1) {
+    await loadUserPlaylistsFromApi(user.id);
+    applyProfileView(user, getCurrentUserPlaylists());
+  }
+
+  // Đồng bộ thông tin hồ sơ từ AuthController: GET /api/auth/profile/{id} (UC11)
   try {
     const res = await safeFetch(`${API_BASE}/auth/profile/${user.id}`);
     if (res && res.ok) {
@@ -1301,7 +1364,9 @@ async function loadAndRenderUserProfile() {
       const syncedUser = normalizeUserPayload(data);
       state.currentUser = { ...user, ...syncedUser };
       localStorage.setItem('sw_user', JSON.stringify(state.currentUser));
-      const apiPlaylists = data.playlists ?? data.Playlists ?? getCurrentUserPlaylists();
+      // Ưu tiên danh sách playlist từ PlaylistsController (có đủ songIds & totalSongs thật)
+      const userPls = getCurrentUserPlaylists();
+      const apiPlaylists = userPls.length > 0 ? userPls : (data.playlists ?? data.Playlists ?? []);
       applyProfileView(state.currentUser, apiPlaylists);
     }
   } catch (e) { }
@@ -1664,30 +1729,34 @@ async function loadAdminDataFromApi() {
       safeFetch(`${API_BASE}/types`).catch(() => null)
     ]);
 
+    if (resAlbums && resAlbums.ok) {
+      const aList = await resAlbums.json();
+      if (Array.isArray(aList) && aList.length > 0) state.albums = aList;
+    }
     if (resSongs && resSongs.ok) {
       state.apiConnected = true;
       const d = await resSongs.json();
-      if (Array.isArray(d)) state.songs = d;
-      else if (d && Array.isArray(d.data)) state.songs = d.data;
+      let rawSongs = [];
+      if (Array.isArray(d) && d.length > 0) rawSongs = d;
+      else if (d && Array.isArray(d.data) && d.data.length > 0) rawSongs = d.data;
+      if (rawSongs.length > 0) {
+        state.songs = rawSongs.map(enrichSongMetadata);
+      }
     }
     if (resUsers && resUsers.ok) {
       state.apiConnected = true;
       const uList = await resUsers.json();
-      if (Array.isArray(uList)) {
+      if (Array.isArray(uList) && uList.length > 0) {
         state.users = uList.map(normalizeUserPayload);
       }
     }
     if (resSingers && resSingers.ok) {
       const sList = await resSingers.json();
-      if (Array.isArray(sList)) state.singers = sList;
-    }
-    if (resAlbums && resAlbums.ok) {
-      const aList = await resAlbums.json();
-      if (Array.isArray(aList)) state.albums = aList;
+      if (Array.isArray(sList) && sList.length > 0) state.singers = sList;
     }
     if (resTypes && resTypes.ok) {
       const tList = await resTypes.json();
-      if (Array.isArray(tList)) state.types = tList;
+      if (Array.isArray(tList) && tList.length > 0) state.types = tList;
     }
   } catch (e) {
     console.log('Admin API sync using fallback seed data');
@@ -1701,7 +1770,12 @@ function switchAdminSection(section) {
   const sections = ['dashboard', 'songs', 'singers', 'albums', 'types', 'users'];
   sections.forEach(s => {
     const pane = document.getElementById('adminTab' + s.charAt(0).toUpperCase() + s.slice(1));
-    if (pane) pane.style.display = (s === section) ? 'block' : 'none';
+    if (pane) {
+      const isMatch = (s === section);
+      pane.classList.toggle('active', isMatch);
+      pane.style.display = isMatch ? 'block' : 'none';
+      pane.style.opacity = isMatch ? '1' : '0';
+    }
   });
 
   // Chỉ hiển thị lưới thẻ thống kê tổng quan ở màn hình Dashboard

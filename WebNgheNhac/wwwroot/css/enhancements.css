@@ -2033,11 +2033,12 @@
 /* ── 5. Admin Tab Switching Smooth Slide & Fade ── */
 .admin-tab-pane {
   display: none;
-  opacity: 0;
-  transform: translateY(8px) scale(0.995);
+  opacity: 1;
+  transform: none;
   transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.admin-tab-pane.active {
+.admin-tab-pane.active,
+.admin-tab-pane.show {
   display: block;
   opacity: 1;
   transform: translateY(0) scale(1);
