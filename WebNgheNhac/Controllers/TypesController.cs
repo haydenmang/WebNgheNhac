@@ -93,6 +93,27 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Thêm thể loại thành công", type });
         }
 
+        // 4b. PUT: api/types/{id} (Cập nhật thông tin thể loại)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateType(int id, [FromBody] CreateTypeRequest request)
+        {
+            var type = await _context.Types.FindAsync(id);
+            if (type == null)
+            {
+                return NotFound(new { message = "Không tìm thấy thể loại cần sửa" });
+            }
+            if (string.IsNullOrWhiteSpace(request.TypeName))
+            {
+                return BadRequest(new { message = "Tên thể loại không được để trống" });
+            }
+
+            type.TypeName = request.TypeName;
+            if (!string.IsNullOrWhiteSpace(request.ImageUrl)) type.ImageUrl = request.ImageUrl;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Cập nhật thể loại thành công", type });
+        }
+
         // 5. DELETE: api/types/{id} (Xóa thể loại)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteType(int id)

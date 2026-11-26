@@ -102,6 +102,26 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Tạo danh sách phát thành công", playlist });
         }
 
+        // 3b. PUT: api/playlists/{id} (Đổi tên danh sách phát - UC08)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdatePlaylist(int id, [FromBody] UpdatePlaylistRequest request)
+        {
+            var playlist = await _context.Playlists.FindAsync(id);
+            if (playlist == null)
+            {
+                return NotFound(new { message = "Không tìm thấy danh sách phát cần sửa" });
+            }
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest(new { message = "Tên danh sách phát không được để trống" });
+            }
+
+            playlist.Name = request.Name.Trim();
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Cập nhật tên danh sách phát thành công", playlist });
+        }
+
         // 4. POST: api/playlists/5/songs (Thêm bài hát vào playlist - Bảng trung gian Playlist_Songs)
         [HttpPost("{playlistId}/songs")]
         public async Task<IActionResult> AddSongToPlaylist(int playlistId, [FromBody] AddSongRequest request)
@@ -197,5 +217,12 @@ namespace WebNgheNhac.Controllers
     {
         [Range(1, int.MaxValue)]
         public int SongId { get; set; }
+    }
+
+    public class UpdatePlaylistRequest
+    {
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = null!;
     }
 }

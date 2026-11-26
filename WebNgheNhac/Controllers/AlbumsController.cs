@@ -105,6 +105,28 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Thêm album thành công", album });
         }
 
+        // 4b. PUT: api/albums/{id} (Cập nhật thông tin album)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAlbum(int id, [FromBody] CreateAlbumRequest request)
+        {
+            var album = await _context.Albums.FindAsync(id);
+            if (album == null)
+            {
+                return NotFound(new { message = "Không tìm thấy album cần sửa" });
+            }
+            if (string.IsNullOrWhiteSpace(request.AlbumName))
+            {
+                return BadRequest(new { message = "Tên album không được để trống" });
+            }
+
+            album.AlbumName = request.AlbumName;
+            if (request.SingerId > 0) album.SingerId = request.SingerId;
+            if (!string.IsNullOrWhiteSpace(request.CoverUrl)) album.CoverUrl = request.CoverUrl;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Cập nhật album thành công", album });
+        }
+
         // 5. DELETE: api/albums/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAlbum(int id)

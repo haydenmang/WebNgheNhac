@@ -7,10 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/style.css?v=20261126_v2"/>
-  <link rel="stylesheet" href="css/pages.css?v=20261126_v2"/>
-  <link rel="stylesheet" href="css/enhancements.css?v=20261126_v2"/>
-  <link rel="stylesheet" href="css/soundwave-ui.css?v=20261126_v2"/>
+  <link rel="stylesheet" href="css/style.css?v=20261126_v3"/>
+  <link rel="stylesheet" href="css/pages.css?v=20261126_v3"/>
+  <link rel="stylesheet" href="css/enhancements.css?v=20261126_v3"/>
+  <link rel="stylesheet" href="css/soundwave-ui.css?v=20261126_v3"/>
   <style>
     /* Custom enhancements for integrated system */
     .toast-container {
@@ -552,10 +552,13 @@
               <span class="badge-pulse" style="margin-bottom:6px"></span><span style="font-size:12px; text-transform:uppercase; color:var(--green); font-weight:700">Playlist cá nhân</span>
               <h2 id="detailPlaylistName" style="font-size:28px; font-weight:800; margin:6px 0">Tên Playlist</h2>
               <p id="detailPlaylistMeta" style="color:var(--muted2); font-size:14px; margin-bottom:16px">Tạo bởi bạn • 0 bài hát</p>
-              <div style="display:flex; gap:12px">
+              <div style="display:flex; gap:12px; flex-wrap:wrap">
                 <button class="btn-hero-play" id="btnPlayFullPlaylist" style="padding:8px 18px; font-size:13px">
                   <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
                   <span>Phát toàn bộ</span>
+                </button>
+                <button class="btn-admin-action secondary" id="btnEditCurrentPlaylist" onclick="openEditCurrentPlaylistModal()" style="color:#60a5fa; border-color:rgba(59,130,246,0.35)">
+                  ✏️ Đổi tên Playlist
                 </button>
                 <button class="btn-admin-action secondary" id="btnDeleteCurrentPlaylist" style="color:#ef4444; border-color:rgba(239,68,68,0.3)">
                   🗑 Xóa Playlist này
@@ -1293,6 +1296,6 @@
 </div>
 
 <!-- Scripts -->
-<script src="js/app.js?v=20261126_v2"></script>
+<script src="js/app.js?v=20261126_v3"></script>
 </body>
 </html>

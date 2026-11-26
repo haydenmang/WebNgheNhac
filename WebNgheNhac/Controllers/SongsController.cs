@@ -209,6 +209,28 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Thêm bài hát thành công", song });
         }
 
+        // 4c. PUT: api/songs/{id} (Cập nhật thông tin bài hát)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateSong(int id, [FromBody] UpdateSongRequest request)
+        {
+            var song = await _context.Songs.FindAsync(id);
+            if (song == null)
+            {
+                return NotFound(new { message = "Không tìm thấy bài hát cần sửa" });
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Title)) song.Title = request.Title;
+            if (request.SingerId > 0) song.SingerId = request.SingerId;
+            if (request.TypeId > 0) song.TypeId = request.TypeId;
+            song.AlbumId = (request.AlbumId.HasValue && request.AlbumId.Value > 0) ? request.AlbumId : null;
+            if (request.Duration > 0) song.Duration = request.Duration;
+            if (!string.IsNullOrWhiteSpace(request.AudioUrl)) song.AudioUrl = request.AudioUrl;
+            if (!string.IsNullOrWhiteSpace(request.CoverUrl)) song.CoverUrl = request.CoverUrl;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Cập nhật bài hát thành công", song });
+        }
+
         // 5. DELETE: api/songs/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSong(int id)
@@ -253,5 +275,17 @@ namespace WebNgheNhac.Controllers
         public int? AlbumId { get; set; }
 
         public int Duration { get; set; }
+    }
+
+    public class UpdateSongRequest
+    {
+        [Required]
+        public string Title { get; set; } = null!;
+        public int SingerId { get; set; }
+        public int TypeId { get; set; }
+        public int? AlbumId { get; set; }
+        public int Duration { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? CoverUrl { get; set; }
     }
 }

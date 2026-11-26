@@ -102,6 +102,28 @@ namespace WebNgheNhac.Controllers
             return Ok(new { message = "Thêm ca sĩ thành công", singer });
         }
 
+        // 4b. PUT: api/singers/{id} (Cập nhật thông tin ca sĩ)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateSinger(int id, [FromBody] CreateSingerRequest request)
+        {
+            var singer = await _context.Singers.FindAsync(id);
+            if (singer == null)
+            {
+                return NotFound(new { message = "Không tìm thấy ca sĩ cần sửa" });
+            }
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest(new { message = "Tên ca sĩ không được để trống" });
+            }
+
+            singer.Name = request.Name;
+            if (!string.IsNullOrWhiteSpace(request.Avatar)) singer.Avatar = request.Avatar;
+            singer.Bio = request.Bio;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Cập nhật thông tin ca sĩ thành công", singer });
+        }
+
         // 5. DELETE: api/singers/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSinger(int id)

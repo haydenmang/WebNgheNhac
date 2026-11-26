@@ -728,13 +728,14 @@ document.getElementById('btnRepeat')?.addEventListener('click', function () {
   showToast(state.isRepeat ? 'Bật lặp lại bài hát' : 'Tắt lặp lại bài hát');
 });
 
-// Audio events (Giữ nguyên hiển thị tổng thời lượng chuẩn của bài hát trong CSDL thay vì bị đè bởi 0:30 preview)
+// Audio events (Đồng bộ thanh thời gian currTime và totalDuration mượt mà theo đúng Duration bài hát trong CSDL)
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
   const pct = (audio.currentTime / audio.duration) * 100;
   progressFill.style.width = pct + '%';
-  currTimeEl.textContent = formatDuration(audio.currentTime);
   const displayDur = (state.currentSong && state.currentSong.duration) ? state.currentSong.duration : audio.duration;
+  const scaledCurr = (audio.currentTime / audio.duration) * displayDur;
+  currTimeEl.textContent = formatDuration(scaledCurr);
   totalDurEl.textContent = formatDuration(displayDur);
 });
 
@@ -1915,8 +1916,28 @@ function closeModal(modalId) {
   if (m) m.classList.remove('show', 'active');
 }
 
+let editingPlaylistId = null;
+
 function openCreatePlaylistModalWithAuth() {
   if (!requireUserLoginForPlaylist('tạo Playlist mới')) return;
+  editingPlaylistId = null;
+  const titleEl = document.querySelector('#modalAddPlaylist .sw-modal-title');
+  const submitBtn = document.querySelector('#formCreatePlaylist button[type="submit"]');
+  if (titleEl) titleEl.textContent = 'Tạo Playlist Mới';
+  if (submitBtn) submitBtn.textContent = 'Tạo Playlist';
+  document.getElementById('inpPlaylistTitle').value = '';
+  document.getElementById('modalAddPlaylist').classList.add('show', 'active');
+}
+
+function openEditCurrentPlaylistModal() {
+  if (!requireUserLoginForPlaylist('sửa Playlist')) return;
+  if (!activeDetailPlaylist) return;
+  editingPlaylistId = activeDetailPlaylist.id;
+  const titleEl = document.querySelector('#modalAddPlaylist .sw-modal-title');
+  const submitBtn = document.querySelector('#formCreatePlaylist button[type="submit"]');
+  if (titleEl) titleEl.textContent = 'Đổi Tên Playlist (UC08)';
+  if (submitBtn) submitBtn.textContent = 'Lưu Tên Mới';
+  document.getElementById('inpPlaylistTitle').value = activeDetailPlaylist.name || '';
   document.getElementById('modalAddPlaylist').classList.add('show', 'active');
 }
 
@@ -1931,13 +1952,38 @@ document.getElementById('btnOpenCreatePlaylistModal')?.addEventListener('click',
 
 async function handleCreatePlaylistSubmit(e) {
   e.preventDefault();
-  if (!requireUserLoginForPlaylist('tạo Playlist mới')) {
+  if (!requireUserLoginForPlaylist('quản lý Playlist')) {
     closeModal('modalAddPlaylist');
     return;
   }
 
   const name = document.getElementById('inpPlaylistTitle').value.trim();
   if (!name) return;
+
+  // Chế độ Sửa tên Playlist (PUT /api/playlists/{id} - UC08)
+  if (editingPlaylistId) {
+    try {
+      const res = await safeFetch(`${API_BASE}/playlists/${editingPlaylistId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      if (res && !res.ok) return;
+    } catch (err) { }
+
+    const pl = state.playlists.find(p => p.id === editingPlaylistId);
+    if (pl) pl.name = name;
+    if (activeDetailPlaylist && activeDetailPlaylist.id === editingPlaylistId) {
+      activeDetailPlaylist.name = name;
+      const dName = document.getElementById('detailPlaylistName');
+      if (dName) dName.textContent = name;
+    }
+    editingPlaylistId = null;
+    renderSidebarPlaylists();
+    closeModal('modalAddPlaylist');
+    showToast(`Đã đổi tên playlist thành "${name}"!`);
+    return;
+  }
 
   const userId = state.currentUser.id;
   const newPl = {
@@ -2139,7 +2185,8 @@ function renderAdminSongsTable(filterText = '') {
         <td><span class="btn-admin-pill" style="font-size:11px">${s.typeName || 'Hip-Hop'}</span></td>
         <td>${albName}</td>
         <td style="color:var(--green)">${(s.plays || 0).toLocaleString()}</td>
-        <td style="text-align:right">
+        <td style="text-align:right; white-space:nowrap">
+          <button class="btn-admin-action secondary" style="padding:4px 10px; font-size:11px; color:#60a5fa; margin-right:4px" onclick="adminOpenEditSongModal(${s.id})">✏️ Sửa</button>
           <button class="btn-admin-action secondary" style="padding:4px 10px; font-size:11px; color:#ef4444" onclick="adminDeleteSong(${s.id})">🗑 Xóa</button>
         </td>
       </tr>
@@ -2185,7 +2232,8 @@ function renderAdminSingersTable() {
       </td>
       <td style="font-weight:600; color:#fff">${art.name}</td>
       <td style="font-size:12px; color:var(--muted2); max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${art.bio || ''}</td>
-      <td style="text-align:right">
+      <td style="text-align:right; white-space:nowrap">
+        <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#60a5fa; margin-right:4px" onclick="adminOpenEditSingerModal(${art.id})">✏️ Sửa</button>
         <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#ef4444" onclick="adminDeleteSinger(${art.id})">🗑 Xóa</button>
       </td>
     </tr>
@@ -2227,7 +2275,8 @@ function renderAdminAlbumsTable() {
         <td style="font-weight:600; color:#fff">${alb.albumName}</td>
         <td>${alb.singerName || 'Ca sĩ'}</td>
         <td style="color:var(--muted2); font-size:12px">${dateStr}</td>
-        <td style="text-align:right">
+        <td style="text-align:right; white-space:nowrap">
+          <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#60a5fa; margin-right:4px" onclick="adminOpenEditAlbumModal(${alb.id})">✏️ Sửa</button>
           <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#ef4444" onclick="adminDeleteAlbum(${alb.id})">🗑 Xóa</button>
         </td>
       </tr>
@@ -2270,7 +2319,8 @@ function renderAdminTypesTable() {
           <img src="${t.imageUrl ?? t.ImageUrl ?? 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad'}" style="width:36px; height:36px; border-radius:6px; object-fit:cover"/>
         </td>
         <td style="font-weight:600; color:#fff">${tname} <span style="font-size:11px; color:var(--muted2); font-weight:400">(${count} bài hát)</span></td>
-        <td style="text-align:right">
+        <td style="text-align:right; white-space:nowrap">
+          <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#60a5fa; margin-right:4px" onclick="adminOpenEditTypeModal(${tid})">✏️ Sửa</button>
           <button class="btn-admin-action secondary" style="padding:4px 8px; font-size:11px; color:#ef4444" onclick="adminDeleteType(${tid})">🗑 Xóa</button>
         </td>
       </tr>
@@ -2362,27 +2412,109 @@ function populateSongFormSelects() {
   }
 }
 
-// Open modals
+let editingSongId = null;
+let editingSingerId = null;
+let editingAlbumId = null;
+let editingTypeId = null;
+
+// Open modals (Chế độ Thêm Mới)
 document.getElementById('btnAdminQuickAddSong')?.addEventListener('click', () => {
+  editingSongId = null;
   populateSongFormSelects();
+  document.getElementById('formAddSong')?.reset();
+  const titleEl = document.querySelector('#modalAddSong .sw-modal-title');
+  if (titleEl) titleEl.textContent = 'Thêm Bài Hát Mới (Upload Audio MP3)';
+  document.getElementById('btnSubmitSongUpload').textContent = '🚀 Tải Lên & Lưu Vào CSDL';
   document.getElementById('modalAddSong').classList.add('show', 'active');
 });
 document.getElementById('btnOpenAddSongModalFromTab')?.addEventListener('click', () => {
+  editingSongId = null;
   populateSongFormSelects();
+  document.getElementById('formAddSong')?.reset();
+  const titleEl = document.querySelector('#modalAddSong .sw-modal-title');
+  if (titleEl) titleEl.textContent = 'Thêm Bài Hát Mới (Upload Audio MP3)';
+  document.getElementById('btnSubmitSongUpload').textContent = '🚀 Tải Lên & Lưu Vào CSDL';
   document.getElementById('modalAddSong').classList.add('show', 'active');
 });
 document.getElementById('btnAdminAddSinger')?.addEventListener('click', () => {
+  editingSingerId = null;
+  document.getElementById('formAddArtist')?.reset();
+  const titleEl = document.querySelector('#modalAddArtist .sw-modal-title');
+  if (titleEl) titleEl.textContent = 'Thêm Ca Sĩ / Nghệ Sĩ Mới';
   document.getElementById('modalAddArtist').classList.add('show', 'active');
 });
 document.getElementById('btnAdminAddAlbum')?.addEventListener('click', () => {
+  editingAlbumId = null;
   populateSongFormSelects();
+  document.getElementById('formAddAlbum')?.reset();
+  const titleEl = document.querySelector('#modalAddAlbum .sw-modal-title');
+  if (titleEl) titleEl.textContent = 'Tạo Album Mới';
   document.getElementById('modalAddAlbum').classList.add('show', 'active');
 });
 document.getElementById('btnAdminAddType')?.addEventListener('click', () => {
+  editingTypeId = null;
+  document.getElementById('formAddType')?.reset();
+  const titleEl = document.querySelector('#modalAddType .sw-modal-title');
+  if (titleEl) titleEl.textContent = 'Thêm Thể Loại Nhạc Mới';
   document.getElementById('modalAddType').classList.add('show', 'active');
 });
 
-// Submit Add Song Form (Hỗ trợ cả Multipart Upload MP3 & JSON URL trực tiếp tới SongsController)
+// Open modals (Chế độ Sửa - PUT)
+function adminOpenEditSongModal(id) {
+  const song = state.songs.find(s => s.id === id);
+  if (!song) return;
+  editingSongId = id;
+  populateSongFormSelects();
+  const titleEl = document.querySelector('#modalAddSong .sw-modal-title');
+  if (titleEl) titleEl.textContent = `Chỉnh Sửa Bài Hát #${id} (UC13)`;
+  document.getElementById('inpSongTitle').value = song.title || '';
+  if (song.singerId) document.getElementById('inpSongSinger').value = song.singerId;
+  if (song.typeId) document.getElementById('inpSongType').value = song.typeId;
+  document.getElementById('inpSongAlbum').value = song.albumId || '';
+  document.getElementById('inpSongDuration').value = song.duration || 180;
+  if (document.getElementById('inpSongAudioUrl')) document.getElementById('inpSongAudioUrl').value = song.audioUrl || '';
+  if (document.getElementById('inpSongCoverUrl')) document.getElementById('inpSongCoverUrl').value = song.coverUrl || '';
+  document.getElementById('btnSubmitSongUpload').textContent = '💾 Lưu Cập Nhật Bài Hát';
+  document.getElementById('modalAddSong').classList.add('show', 'active');
+}
+
+function adminOpenEditSingerModal(id) {
+  const singer = state.singers.find(s => (s.id ?? s.Id) === id);
+  if (!singer) return;
+  editingSingerId = id;
+  const titleEl = document.querySelector('#modalAddArtist .sw-modal-title');
+  if (titleEl) titleEl.textContent = `Chỉnh Sửa Ca Sĩ #${id} (UC19)`;
+  document.getElementById('inpArtistName').value = singer.name ?? singer.Name ?? '';
+  document.getElementById('inpArtistAvatar').value = singer.avatar ?? singer.Avatar ?? '';
+  document.getElementById('inpArtistBio').value = singer.bio ?? singer.Bio ?? '';
+  document.getElementById('modalAddArtist').classList.add('show', 'active');
+}
+
+function adminOpenEditAlbumModal(id) {
+  const alb = state.albums.find(a => (a.id ?? a.Id) === id);
+  if (!alb) return;
+  editingAlbumId = id;
+  populateSongFormSelects();
+  const titleEl = document.querySelector('#modalAddAlbum .sw-modal-title');
+  if (titleEl) titleEl.textContent = `Chỉnh Sửa Album #${id}`;
+  document.getElementById('inpAlbumName').value = alb.albumName ?? alb.AlbumName ?? '';
+  if (alb.singerId ?? alb.SingerId) document.getElementById('inpAlbumSinger').value = alb.singerId ?? alb.SingerId;
+  document.getElementById('inpAlbumCoverUrl').value = alb.coverUrl ?? alb.CoverUrl ?? '';
+  document.getElementById('modalAddAlbum').classList.add('show', 'active');
+}
+
+function adminOpenEditTypeModal(id) {
+  const t = state.types.find(x => (x.id ?? x.Id) === id);
+  if (!t) return;
+  editingTypeId = id;
+  const titleEl = document.querySelector('#modalAddType .sw-modal-title');
+  if (titleEl) titleEl.textContent = `Chỉnh Sửa Thể Loại #${id} (UC16)`;
+  document.getElementById('inpTypeName').value = t.typeName ?? t.TypeName ?? '';
+  document.getElementById('inpTypeImageUrl').value = t.imageUrl ?? t.ImageUrl ?? '';
+  document.getElementById('modalAddType').classList.add('show', 'active');
+}
+
+// Submit Add / Edit Song Form
 async function handleAddSongSubmit(e) {
   e.preventDefault();
   const title = document.getElementById('inpSongTitle').value.trim();
@@ -2396,15 +2528,58 @@ async function handleAddSongSubmit(e) {
   const inputAudioUrl = document.getElementById('inpSongAudioUrl')?.value.trim() || '';
   const inputCoverUrl = document.getElementById('inpSongCoverUrl')?.value.trim() || '';
 
+  const singer = state.singers.find(s => (s.id ?? s.Id) === singerId);
+  const type = state.types.find(t => (t.id ?? t.Id) === typeId);
+  const album = albumId ? state.albums.find(a => (a.id ?? a.Id) === albumId) : null;
+  const fallbackCover = inputCoverUrl || (album ? (album.coverUrl ?? album.CoverUrl) : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4');
+
+  // Chế độ Sửa bài hát (PUT /api/songs/{id} - UC13)
+  if (editingSongId) {
+    const existing = state.songs.find(s => s.id === editingSongId);
+    const updatePayload = {
+      title,
+      singerId,
+      typeId,
+      albumId,
+      duration,
+      audioUrl: inputAudioUrl || existing?.audioUrl || SEED_DATA.songs[0].audioUrl,
+      coverUrl: inputCoverUrl || existing?.coverUrl || fallbackCover
+    };
+    try {
+      const res = await safeFetch(`${API_BASE}/songs/${editingSongId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+      if (res && !res.ok) return;
+    } catch (err) { }
+
+    if (existing) {
+      existing.title = title;
+      existing.singerId = singerId;
+      existing.singerName = singer ? (singer.name ?? singer.Name) : existing.singerName;
+      existing.typeId = typeId;
+      existing.typeName = type ? (type.typeName ?? type.TypeName) : existing.typeName;
+      existing.albumId = albumId;
+      existing.albumName = album ? (album.albumName ?? album.AlbumName) : null;
+      existing.duration = duration;
+      existing.audioUrl = updatePayload.audioUrl;
+      existing.coverUrl = updatePayload.coverUrl;
+    }
+    editingSongId = null;
+    closeModal('modalAddSong');
+    document.getElementById('formAddSong').reset();
+    renderAdminDashboard();
+    renderHomeSongs();
+    renderSearchAll();
+    showToast(`Đã cập nhật thông tin bài hát "${title}"!`);
+    return;
+  }
+
   if (!fileAudio && !inputAudioUrl) {
     showToast('Vui lòng chọn file nhạc MP3 hoặc nhập link URL nhạc!', true);
     return;
   }
-
-  const singer = state.singers.find(s => s.id === singerId);
-  const type = state.types.find(t => t.id === typeId);
-  const album = albumId ? state.albums.find(a => a.id === albumId) : null;
-  const fallbackCover = inputCoverUrl || (album ? album.coverUrl : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4');
 
   const btnSubmit = document.getElementById('btnSubmitSongUpload');
   btnSubmit.disabled = true;
@@ -2508,12 +2683,42 @@ async function handleAddSongSubmit(e) {
   showToast(`Đã thêm thành công bài hát "${title}"!`);
 }
 
-// Submit Add Artist Form
+// Submit Add / Edit Artist Form
 async function handleAddArtistSubmit(e) {
   e.preventDefault();
   const name = document.getElementById('inpArtistName').value.trim();
   const avatar = document.getElementById('inpArtistAvatar').value.trim() || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
   const bio = document.getElementById('inpArtistBio').value.trim();
+
+  if (editingSingerId) {
+    try {
+      const res = await safeFetch(`${API_BASE}/singers/${editingSingerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, avatar, bio })
+      });
+      if (res && !res.ok) return;
+    } catch (err) { }
+
+    const existing = state.singers.find(s => (s.id ?? s.Id) === editingSingerId);
+    if (existing) {
+      existing.name = name;
+      existing.avatar = avatar;
+      existing.bio = bio;
+    }
+    state.songs.forEach(s => { if (s.singerId === editingSingerId) s.singerName = name; });
+    state.albums.forEach(a => { if ((a.singerId ?? a.SingerId) === editingSingerId) a.singerName = name; });
+    editingSingerId = null;
+    closeModal('modalAddArtist');
+    document.getElementById('formAddArtist').reset();
+    renderAdminDashboard();
+    renderHomeArtists();
+    renderHomeAlbums();
+    renderHomeSongs();
+    populateSongFormSelects();
+    showToast(`Đã cập nhật thông tin ca sĩ "${name}"!`);
+    return;
+  }
 
   const newSinger = {
     id: Date.now(),
@@ -2548,13 +2753,41 @@ async function handleAddArtistSubmit(e) {
   showToast(`Đã thêm nghệ sĩ "${name}" thành công!`);
 }
 
-// Submit Add Album Form
+// Submit Add / Edit Album Form
 async function handleAddAlbumSubmit(e) {
   e.preventDefault();
   const albumName = document.getElementById('inpAlbumName').value.trim();
   const singerId = parseInt(document.getElementById('inpAlbumSinger').value);
   const coverUrl = document.getElementById('inpAlbumCoverUrl').value.trim() || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4';
-  const singer = state.singers.find(s => s.id === singerId);
+  const singer = state.singers.find(s => (s.id ?? s.Id) === singerId);
+
+  if (editingAlbumId) {
+    try {
+      const res = await safeFetch(`${API_BASE}/albums/${editingAlbumId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ albumName, singerId, coverUrl })
+      });
+      if (res && !res.ok) return;
+    } catch (err) { }
+
+    const existing = state.albums.find(a => (a.id ?? a.Id) === editingAlbumId);
+    if (existing) {
+      existing.albumName = albumName;
+      existing.singerId = singerId;
+      existing.singerName = singer ? (singer.name ?? singer.Name) : existing.singerName;
+      existing.coverUrl = coverUrl;
+    }
+    state.songs.forEach(s => { if (s.albumId === editingAlbumId) s.albumName = albumName; });
+    editingAlbumId = null;
+    closeModal('modalAddAlbum');
+    document.getElementById('formAddAlbum').reset();
+    renderAdminDashboard();
+    renderHomeAlbums();
+    populateSongFormSelects();
+    showToast(`Đã cập nhật Album "${albumName}"!`);
+    return;
+  }
 
   const newAlbum = {
     id: Date.now(),
@@ -2591,12 +2824,38 @@ async function handleAddAlbumSubmit(e) {
   showToast(`Đã xuất bản Album "${albumName}"!`);
 }
 
-// Submit Add Type Form (TypesController: POST /api/types)
+// Submit Add / Edit Type Form (TypesController: POST / PUT /api/types)
 async function handleAddTypeSubmit(e) {
   e.preventDefault();
   const typeName = document.getElementById('inpTypeName').value.trim();
   const imageUrl = document.getElementById('inpTypeImageUrl').value.trim() || 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad';
   if (!typeName) return;
+
+  if (editingTypeId) {
+    try {
+      const res = await safeFetch(`${API_BASE}/types/${editingTypeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ typeName, imageUrl })
+      });
+      if (res && !res.ok) return;
+    } catch (err) { }
+
+    const existing = state.types.find(t => (t.id ?? t.Id) === editingTypeId);
+    if (existing) {
+      existing.typeName = typeName;
+      existing.imageUrl = imageUrl;
+    }
+    state.songs.forEach(s => { if (s.typeId === editingTypeId) s.typeName = typeName; });
+    editingTypeId = null;
+    closeModal('modalAddType');
+    document.getElementById('formAddType').reset();
+    renderAdminDashboard();
+    renderHomeGenres();
+    populateSongFormSelects();
+    showToast(`Đã cập nhật thể loại "${typeName}"!`);
+    return;
+  }
 
   const newType = {
     id: Date.now(),
